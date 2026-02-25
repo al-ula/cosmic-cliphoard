@@ -1,0 +1,16 @@
+[package]
+name = "cliphoard-schema"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Shared types and IPC protocol for cliphoard clipboard manager"
+
+[dependencies]
+bincode = "2.0.1"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+zbus = { version = "5", default-features = false, features = ["tokio"] }
