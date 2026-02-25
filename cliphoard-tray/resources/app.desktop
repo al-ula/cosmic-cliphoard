@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Cliphoard Tray
+Comment=System tray interface for cliphoard
+Type=Application
+Icon=com.github.al-ula.CliphoardTray
+Exec=cliphoard-tray %F
+Terminal=false
+StartupNotify=true
+Categories=COSMIC
+Keywords=COSMIC
+MimeType=

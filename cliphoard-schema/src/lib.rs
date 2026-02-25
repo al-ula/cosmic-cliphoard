@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MPL-2.0
+
+//! Shared types and D-Bus interface definitions for the cliphoard clipboard manager.
+//!
+//! Supports dual serialization:
+//! - **bincode** for efficient IPC between processes
+//! - **JSON** for human-readable storage and debugging
+
+pub mod dbus;
+pub mod entry;
+pub mod history;
+pub mod mime;
+pub mod codec;
+
+pub use codec::{Codec, JsonCodec, BincodeCodec};
+pub use entry::{ClipboardEntry, EntryId};
+pub use history::ClipboardHistory;
+pub use mime::MimeType;
+
+/// The D-Bus well-known name for the cliphoard backend service.
+pub const DBUS_NAME: &str = "com.github.al_ula.Cliphoard";
+
+/// The D-Bus object path for the clipboard manager.
+pub const DBUS_PATH: &str = "/com/github/al_ula/Cliphoard";
+
+/// Default maximum number of entries in clipboard history.
+pub const DEFAULT_MAX_ENTRIES: usize = 500;
+
+/// Default maximum size in bytes for a single clipboard entry's data.
+pub const DEFAULT_MAX_ENTRY_SIZE: usize = 10 * 1024 * 1024; // 10 MiB
