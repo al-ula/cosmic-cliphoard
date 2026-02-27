@@ -1,48 +1,39 @@
 // SPDX-License-Identifier: MPL-2.0
 
-//! Dual serialization codec for IPC and storage.
-//!
-//! Three usage modes:
-//! - **Direct types** — use [`ClipboardEntry`] and [`ClipboardHistory`] as plain Rust types
-//!   in the same process (no serialization overhead).
-//! - **Bincode** — [`BincodeCodec`] for efficient binary IPC between separate processes.
-//! - **JSON** — [`JsonCodec`] for human-readable storage and debugging.
+use serde::{de::DeserializeOwned, Serialize};
 
-use serde::{Serialize, de::DeserializeOwned};
-
-/// Serialization/deserialization codec trait.
 pub trait Codec {
     type Error: std::error::Error + Send + Sync + 'static;
 
-    fn serialize<T: Serialize + bincode::Encode>(value: &T) -> Result<Vec<u8>, Self::Error>;
-    fn deserialize<T: DeserializeOwned + bincode::Decode<()>>(bytes: &[u8]) -> Result<T, Self::Error>;
+    fn serialize<T: Serialize + oxicode::Encode>(value: &T) -> Result<Vec<u8>, Self::Error>;
+    fn deserialize<T: DeserializeOwned + oxicode::Decode<()>>(
+        bytes: &[u8],
+    ) -> Result<T, Self::Error>;
 }
 
-/// Efficient binary codec for IPC between processes.
-pub struct BincodeCodec;
+pub struct OxiCodeCodec;
 
 #[derive(Debug, thiserror::Error)]
-pub enum BincodeError {
-    #[error("bincode encode: {0}")]
-    Encode(#[from] bincode::error::EncodeError),
-    #[error("bincode decode: {0}")]
-    Decode(#[from] bincode::error::DecodeError),
+pub enum OxiCodeError {
+    #[error("oxicode encode: {0}")]
+    Encode(#[from] oxicode::error::Error),
 }
 
-impl Codec for BincodeCodec {
-    type Error = BincodeError;
+impl Codec for OxiCodeCodec {
+    type Error = OxiCodeError;
 
-    fn serialize<T: Serialize + bincode::Encode>(value: &T) -> Result<Vec<u8>, Self::Error> {
-        Ok(bincode::encode_to_vec(value, bincode::config::standard())?)
+    fn serialize<T: Serialize + oxicode::Encode>(value: &T) -> Result<Vec<u8>, Self::Error> {
+        Ok(oxicode::encode_to_vec(value)?)
     }
 
-    fn deserialize<T: DeserializeOwned + bincode::Decode<()>>(bytes: &[u8]) -> Result<T, Self::Error> {
-        let (value, _) = bincode::decode_from_slice(bytes, bincode::config::standard())?;
+    fn deserialize<T: DeserializeOwned + oxicode::Decode<()>>(
+        bytes: &[u8],
+    ) -> Result<T, Self::Error> {
+        let (value, _) = oxicode::decode_from_slice(bytes)?;
         Ok(value)
     }
 }
 
-/// Human-readable JSON codec for storage and debugging.
 pub struct JsonCodec;
 
 #[derive(Debug, thiserror::Error)]
@@ -52,11 +43,13 @@ pub struct JsonError(#[from] serde_json::Error);
 impl Codec for JsonCodec {
     type Error = JsonError;
 
-    fn serialize<T: Serialize + bincode::Encode>(value: &T) -> Result<Vec<u8>, Self::Error> {
+    fn serialize<T: Serialize + oxicode::Encode>(value: &T) -> Result<Vec<u8>, Self::Error> {
         Ok(serde_json::to_vec_pretty(value)?)
     }
 
-    fn deserialize<T: DeserializeOwned + bincode::Decode<()>>(bytes: &[u8]) -> Result<T, Self::Error> {
+    fn deserialize<T: DeserializeOwned + oxicode::Decode<()>>(
+        bytes: &[u8],
+    ) -> Result<T, Self::Error> {
         Ok(serde_json::from_slice(bytes)?)
     }
 }
@@ -67,10 +60,10 @@ mod tests {
     use crate::{ClipboardEntry, ClipboardHistory, MimeType};
 
     #[test]
-    fn bincode_roundtrip_entry() {
+    fn oxicode_roundtrip_entry() {
         let entry = ClipboardEntry::new(1, MimeType::TextPlain, b"hello".to_vec());
-        let bytes = BincodeCodec::serialize(&entry).unwrap();
-        let decoded: ClipboardEntry = BincodeCodec::deserialize(&bytes).unwrap();
+        let bytes = OxiCodeCodec::serialize(&entry).unwrap();
+        let decoded: ClipboardEntry = OxiCodeCodec::deserialize(&bytes).unwrap();
         assert_eq!(decoded.id, entry.id);
         assert_eq!(decoded.as_text(), Some("hello"));
     }
@@ -88,19 +81,19 @@ mod tests {
     }
 
     #[test]
-    fn bincode_roundtrip_history() {
-        let mut history = ClipboardHistory::new(10);
+    fn oxicode_roundtrip_history() {
+        let mut history = ClipboardHistory::new(10, 10, 1024 * 1024);
         history.push(MimeType::TextPlain, b"one".to_vec());
         history.push(MimeType::TextHtml, b"<b>two</b>".to_vec());
 
-        let bytes = BincodeCodec::serialize(&history).unwrap();
-        let decoded: ClipboardHistory = BincodeCodec::deserialize(&bytes).unwrap();
+        let bytes = OxiCodeCodec::serialize(&history).unwrap();
+        let decoded: ClipboardHistory = OxiCodeCodec::deserialize(&bytes).unwrap();
         assert_eq!(decoded.len(), 2);
     }
 
     #[test]
     fn json_roundtrip_history() {
-        let mut history = ClipboardHistory::new(10);
+        let mut history = ClipboardHistory::new(10, 10, 1024 * 1024);
         history.push(MimeType::TextPlain, b"test".to_vec());
 
         let bytes = JsonCodec::serialize(&history).unwrap();
