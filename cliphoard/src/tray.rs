@@ -7,8 +7,8 @@ use ksni::{Category, MenuItem, Status, ToolTip, TrayService};
 use tracing::{debug, error, info};
 use zbus::Connection;
 
-const DBUS_NAME: &str = "com.github.al_ula.Cliphoard";
-const DBUS_PATH: &str = "/com/github/al_ula/Cliphoard";
+const DBUS_NAME: &str = cliphoard_schema::APP_ID;
+const DBUS_PATH: &str = cliphoard_schema::DBUS_PATH;
 
 struct TrayIcon;
 
@@ -18,7 +18,7 @@ impl ksni::Tray for TrayIcon {
     }
 
     fn icon_name(&self) -> String {
-        "com.github.al-ula.Cliphoard".into()
+        cliphoard_schema::APP_ID.into()
     }
 
     fn category(&self) -> Category {
@@ -44,9 +44,7 @@ impl ksni::Tray for TrayIcon {
                 icon_name: "window-pop-out-symbolic".into(),
                 activate: Box::new(|_this| {
                     debug!("Opening cliphoard overlay");
-                    std::process::Command::new("cliphoard")
-                        .spawn()
-                        .ok();
+                    crate::launcher::spawn(std::iter::empty::<&str>()).ok();
                 }),
                 ..Default::default()
             }),
