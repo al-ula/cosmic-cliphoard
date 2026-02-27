@@ -1,0 +1,23 @@
+[package]
+name = "cliphoard-daemon"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "D-Bus daemon and clipboard watcher for cliphoard"
+repository.workspace = true
+
+[dependencies]
+cliphoard-schema = { path = "../cliphoard-schema" }
+cliphoard-decode = { path = "../cliphoard-decode" }
+dirs = "6"
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+wayland-clipboard-listener = "0.4"
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+
+[dev-dependencies]
+tempfile = "3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

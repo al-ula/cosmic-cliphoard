@@ -6,9 +6,18 @@ use crate::MimeType;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Unique identifier for a clipboard entry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[derive(bincode::Encode, bincode::Decode)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    oxicode::Encode,
+    oxicode::Decode,
+)]
 pub struct EntryId(pub u64);
 
 impl std::fmt::Display for EntryId {
@@ -17,17 +26,12 @@ impl std::fmt::Display for EntryId {
     }
 }
 
-/// A single clipboard entry.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Serialize, Deserialize, oxicode::Encode, oxicode::Decode)]
 pub struct ClipboardEntry {
     pub id: EntryId,
     pub mime: MimeType,
-    /// Raw clipboard data bytes.
     pub data: Vec<u8>,
-    /// Unix timestamp in milliseconds (for bincode compatibility with chrono).
     pub timestamp_ms: i64,
-    /// Whether the user has pinned this entry to prevent eviction.
     pub pinned: bool,
 }
 
@@ -42,13 +46,10 @@ impl ClipboardEntry {
         }
     }
 
-    /// Get the timestamp as a chrono DateTime.
     pub fn timestamp(&self) -> DateTime<Utc> {
-        DateTime::from_timestamp_millis(self.timestamp_ms)
-            .unwrap_or_default()
+        DateTime::from_timestamp_millis(self.timestamp_ms).unwrap_or_default()
     }
 
-    /// For text entries, decode data as UTF-8.
     pub fn as_text(&self) -> Option<&str> {
         if self.mime.is_text() {
             std::str::from_utf8(&self.data).ok()
@@ -57,15 +58,14 @@ impl ClipboardEntry {
         }
     }
 
-    /// A short preview string for display in UI lists.
     pub fn preview(&self, max_len: usize) -> String {
         if let Some(text) = self.as_text() {
-            let trimmed = text.trim();
-            if trimmed.len() <= max_len {
-                trimmed.to_owned()
+            let collapsed: String = text.split_whitespace().collect::<Vec<_>>().join(" ");
+            if collapsed.len() <= max_len {
+                collapsed
             } else {
-                let mut s = trimmed[..max_len].to_owned();
-                s.push_str("…");
+                let mut s = collapsed[..max_len].to_owned();
+                s.push('…');
                 s
             }
         } else if self.mime.is_image() {
