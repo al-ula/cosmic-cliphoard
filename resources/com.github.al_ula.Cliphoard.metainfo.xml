@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: FSFAP -->
+<component type="desktop-application">
+  <id>com.github.al_ula.Cliphoard</id>
+  <name>Cliphoard</name>
+  <summary>Clipboard manager for COSMIC</summary>
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>MPL-2.0</project_license>
+
+  <description>
+    <p>
+      A clipboard manager built for the COSMIC desktop environment.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">com.github.al_ula.Cliphoard.desktop</launchable>
+
+  <url type="homepage">https://github.com/al-ula/cosmic-cliphoard</url>
+  <url type="bugtracker">https://github.com/al-ula/cosmic-cliphoard/issues</url>
+  <url type="vcs-browser">https://github.com/al-ula/cosmic-cliphoard</url>
+
+  <developer id="com.github.al_ula">
+    <name>Isa Al-Ula</name>
+  </developer>
+
+  <releases>
+    <release version="0.1.0" date="2026-02-27">
+      <description>
+        <p>Initial release.</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+</component>
