@@ -20,8 +20,14 @@ pub use entry::{ClipboardEntry, EntryId};
 pub use history::{ClipboardHistory, PinResult};
 pub use mime::MimeType;
 
+/// The base application ID.
+pub const APP_ID: &str = "com.github.al_ula.Cliphoard";
+
+/// The applet application ID.
+pub const APPLET_ID: &str = "com.github.al_ula.Cliphoard.Applet";
+
 /// The D-Bus well-known name for the cliphoard daemon service.
-pub const DBUS_NAME: &str = "com.github.al_ula.Cliphoard";
+pub const DBUS_NAME: &str = APP_ID;
 
 /// The D-Bus object path for the clipboard manager.
 pub const DBUS_PATH: &str = "/com/github/al_ula/Cliphoard";

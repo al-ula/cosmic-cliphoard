@@ -40,7 +40,7 @@ impl Application for AppletModel {
     type Flags = ();
     type Message = Message;
 
-    const APP_ID: &'static str = "com.github.al_ula.Cliphoard.Applet";
+    const APP_ID: &'static str = cliphoard_schema::APPLET_ID;
 
     fn core(&self) -> &Core {
         &self.core
@@ -91,7 +91,7 @@ impl Application for AppletModel {
                 }
             }
             Message::OpenOverlay => {
-                std::process::Command::new("cliphoard").spawn().ok();
+                crate::launcher::spawn(std::iter::empty::<&str>()).ok();
                 if let Some(p) = self.popup.take() {
                     return destroy_popup(p);
                 }
@@ -169,7 +169,7 @@ impl Application for AppletModel {
         self.core
             .applet
             .icon_button_from_handle(
-                widget::icon::from_name("com.github.al-ula.Cliphoard")
+                widget::icon::from_name(cliphoard_schema::APP_ID)
                     .fallback(Some(widget::icon::IconFallback::Names(vec![
                         "folder-documents-symbolic".into(),
                     ])))
