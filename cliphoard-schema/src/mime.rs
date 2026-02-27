@@ -4,9 +4,9 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Recognized MIME type categories for clipboard content.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[derive(bincode::Encode, bincode::Decode)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, oxicode::Encode, oxicode::Decode,
+)]
 pub enum MimeType {
     TextPlain,
     TextHtml,
@@ -15,12 +15,10 @@ pub enum MimeType {
     ImageJpeg,
     ImageSvg,
     ImageBmp,
-    /// A MIME type not covered by the common variants.
     Other(String),
 }
 
 impl MimeType {
-    /// Parse a MIME type string into a [`MimeType`].
     pub fn parse(s: &str) -> Self {
         match s.trim().to_ascii_lowercase().as_str() {
             "text/plain" | "text/plain;charset=utf-8" | "utf8_string" | "string" => Self::TextPlain,
@@ -34,7 +32,6 @@ impl MimeType {
         }
     }
 
-    /// Returns the canonical MIME type string.
     pub fn as_str(&self) -> &str {
         match self {
             Self::TextPlain => "text/plain",
