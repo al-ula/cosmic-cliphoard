@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Cliphoard Applet
+Comment=Clipboard manager applet for COSMIC panel
+Exec=cliphoard applet
+Icon=com.github.al_ula.Cliphoard
+Terminal=false
+Type=Application
+NoDisplay=true
+Categories=Utility;
+X-CosmicApplet=true

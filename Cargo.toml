@@ -1,15 +1,67 @@
-[workspace]
-members = [
-    "cliphoard",
-    "cliphoard-schema",
-    "cliphoard-decode",
-    "cliphoard-daemon",
-]
-resolver = "2"
 
-[workspace.package]
+[package]
 version = "0.1.0"
 edition = "2024"
 authors = ["Isa Al-Ula <isaalula@proton.me>"]
 license = "MPL-2.0"
 repository = "https://github.com/al-ula/cosmic-cliphoard"
+name = "cliphoard"
+description = "Clipboard manager with libcosmic and wl-clipboard"
+
+[features]
+default = []
+launcher-desktop = []
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+dirs = "6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+futures-util = "0.3.32"
+thiserror = "2"
+i18n-embed = { version = "0.16", features = [
+    "fluent-system",
+    "desktop-requester",
+] }
+i18n-embed-fl = "0.10"
+ksni = { version = "0.3.3", features = ["blocking"] }
+open = "5.3.3"
+rust-embed = "8.11.0"
+tokio = { version = "1.49.0", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+wayland-clipboard-listener = "0.6.0"
+oxicode = "0.1.1"
+chrono = "0.4.44"
+
+[dependencies.libcosmic]
+git = "https://github.com/pop-os/libcosmic.git"
+# See https://github.com/pop-os/libcosmic/blob/master/Cargo.toml for available features.
+features = [
+    # Accessibility support
+    "a11y",
+    # Applet support (panel applet mode)
+    "applet",
+    "applet-token",
+    # Uses cosmic-settings-daemon to watch for config file changes
+    "dbus-config",
+    # Uses tokio as the executor for the runtime
+    "tokio",
+    # Windowing support for X11, Windows, Mac, & Redox
+    "winit",
+    # Add Wayland support to winit
+    "wayland",
+    # GPU-accelerated rendering
+    "wgpu",
+]
+
+# Uncomment to test a locally-cloned libcosmic
+# [patch.'https://github.com/pop-os/libcosmic']
+# libcosmic = { path = "../libcosmic" }
+# cosmic-config = { path = "../libcosmic/cosmic-config" }
+# cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+
+[dev-dependencies]
+tempfile = "3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
