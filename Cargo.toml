@@ -1,7 +1,9 @@
 [workspace]
 members = [
     "cliphoard",
-    "cliphoard-applet", "cliphoard-backend", "cliphoard-schema", "cliphoard-tray",
+    "cliphoard-schema",
+    "cliphoard-decode",
+    "cliphoard-daemon",
 ]
 resolver = "2"
 
