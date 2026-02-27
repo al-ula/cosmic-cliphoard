@@ -62,6 +62,7 @@ enum Page {
 pub enum View {
     Main,
     Settings,
+    About,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -197,6 +198,7 @@ enum Message {
     SaveSettings,
     ResetSettings,
     SettingsSaved(Result<(), String>),
+    OpenUrl(String),
 }
 
 impl std::fmt::Debug for OverlayState {
@@ -645,6 +647,9 @@ impl OverlayState {
                     self.error = Some(e);
                 }
             }
+            Message::OpenUrl(url) => {
+                let _ = open::that(&url);
+            }
         }
         Task::none()
     }
@@ -845,24 +850,36 @@ impl OverlayState {
                 .into()
         };
 
-        let footer_button = match self.view {
-            View::Main => widget::button::icon(widget::icon::from_name("emblem-system-symbolic"))
-                .extra_small()
-                .on_press(Message::SetView(View::Settings))
-                .class(cosmic::theme::Button::Text),
-            View::Settings => widget::button::icon(widget::icon::from_name("go-previous-symbolic"))
+        let settings_button = match self.view {
+            View::Settings => widget::button::icon(widget::icon::from_name("go-home-symbolic"))
                 .extra_small()
                 .on_press(Message::SetView(View::Main))
                 .class(cosmic::theme::Button::Text),
+            _ => widget::button::icon(widget::icon::from_name("emblem-system-symbolic"))
+                .extra_small()
+                .on_press(Message::SetView(View::Settings))
+                .class(cosmic::theme::Button::Text),
         };
 
-        let mut footer_row = widget::row::with_capacity(3);
+        let about_button = match self.view {
+            View::About => widget::button::icon(widget::icon::from_name("go-home-symbolic"))
+                .extra_small()
+                .on_press(Message::SetView(View::Main))
+                .class(cosmic::theme::Button::Text),
+            _ => widget::button::icon(widget::icon::from_name("help-about-symbolic"))
+                .extra_small()
+                .on_press(Message::SetView(View::About))
+                .class(cosmic::theme::Button::Text),
+        };
+
+        let mut footer_row = widget::row::with_capacity(4);
         if self.view == View::Main {
             footer_row = footer_row.push(widget::text::caption(format!("{} entries", entries_count)));
         }
         footer_row = footer_row
             .push(widget::horizontal_space())
-            .push(footer_button)
+            .push(about_button)
+            .push(settings_button)
             .align_y(cosmic::iced::Alignment::Center);
 
         let footer = widget::container(footer_row)
@@ -1054,6 +1071,91 @@ impl OverlayState {
 
                 widget::container(
                     widget::scrollable(settings_content)
+                        .height(Length::Fill),
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .padding(space_s)
+                .into()
+            }
+            View::About => {
+                // App icon
+                let icon = widget::icon::from_name("com.github.al_ula.Cliphoard")
+                    .size(64);
+
+                // App name
+                let app_name = widget::text::title3(fl!("app-title"));
+
+                // Author
+                let author = widget::text::caption("Isa Al-Ula");
+
+                // Version badge
+                let version_badge = widget::container(
+                    widget::text::caption(env!("CARGO_PKG_VERSION"))
+                        .width(Length::Shrink),
+                )
+                .padding([2, space_s])
+                .class(cosmic::theme::Container::Primary);
+
+                // Header column (icon + name + author + version)
+                let header = widget::column::with_capacity(4)
+                    .push(icon)
+                    .push(app_name)
+                    .push(author)
+                    .push(version_badge)
+                    .spacing(space_xs)
+                    .align_x(cosmic::iced::Alignment::Center)
+                    .width(Length::Fill);
+
+                // Links section
+                let links_section = widget::settings::section()
+                    .title(fl!("about-links"))
+                    .add(widget::settings::item(
+                        fl!("about-repository"),
+                        widget::button::icon(widget::icon::from_name("web-browser-symbolic"))
+                            .extra_small()
+                            .on_press(Message::OpenUrl("https://github.com/al-ula/cosmic-cliphoard".into()))
+                            .class(cosmic::theme::Button::Text),
+                    ))
+                    .add(widget::settings::item(
+                        fl!("about-support"),
+                        widget::button::icon(widget::icon::from_name("web-browser-symbolic"))
+                            .extra_small()
+                            .on_press(Message::OpenUrl("https://github.com/al-ula/cosmic-cliphoard/issues".into()))
+                            .class(cosmic::theme::Button::Text),
+                    ));
+
+                // Developers section
+                let developers_section = widget::settings::section()
+                    .title(fl!("about-developers"))
+                    .add(widget::settings::item(
+                        "Isa Al-Ula",
+                        widget::button::icon(widget::icon::from_name("web-browser-symbolic"))
+                            .extra_small()
+                            .on_press(Message::OpenUrl("https://github.com/al-ula".into()))
+                            .class(cosmic::theme::Button::Text),
+                    ));
+
+                // License section
+                let license_section = widget::settings::section()
+                    .title(fl!("about-license"))
+                    .add(widget::settings::item(
+                        "MPL-2.0",
+                        widget::button::icon(widget::icon::from_name("web-browser-symbolic"))
+                            .extra_small()
+                            .on_press(Message::OpenUrl("https://www.mozilla.org/en-US/MPL/2.0/".into()))
+                            .class(cosmic::theme::Button::Text),
+                    ));
+
+                let sections = widget::settings::view_column(vec![
+                    header.into(),
+                    links_section.into(),
+                    developers_section.into(),
+                    license_section.into(),
+                ]);
+
+                widget::container(
+                    widget::scrollable(sections)
                         .height(Length::Fill),
                 )
                 .width(Length::Fill)
