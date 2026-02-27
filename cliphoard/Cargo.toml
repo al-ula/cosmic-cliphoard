@@ -7,6 +7,11 @@ license.workspace = true
 description = "Clipboard manager with libcosmic and wl-clipboard"
 repository.workspace = true
 
+[features]
+default = []
+launcher-desktop = []
+launcher-flatpak = []
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 cliphoard-daemon = { path = "../cliphoard-daemon" }

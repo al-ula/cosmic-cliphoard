@@ -6,6 +6,7 @@ mod cli;
 mod commands;
 mod config;
 mod i18n;
+mod launcher;
 mod tray;
 
 use clap::Parser;
