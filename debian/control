@@ -1,0 +1,25 @@
+Source: cliphoard
+Section: utils
+Priority: optional
+Maintainer: Isa Al-Ula <isaalula@proton.me>
+Build-Depends: debhelper-compat (= 13),
+               cargo (>= 1.85),
+               rustc (>= 1.85),
+               just,
+               gcc,
+               git,
+               libxkbcommon-dev,
+               libwayland-dev,
+               libdbus-1-dev,
+               pkg-config
+Standards-Version: 4.6.2
+Homepage: https://github.com/al-ula/cosmic-cliphoard
+Rules-Requires-Root: no
+
+Package: cliphoard
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, wl-clipboard
+Description: Clipboard manager for COSMIC desktop
+ A clipboard manager built for the COSMIC desktop environment.
+ Features a panel applet, system tray icon, and background daemon
+ with D-Bus integration.
