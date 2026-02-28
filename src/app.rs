@@ -18,7 +18,7 @@ use cosmic::iced_core::widget::Id;
 use cosmic::iced_runtime::Appearance;
 use cosmic::widget;
 use cosmic::{Element, Theme};
-use futures_util::SinkExt;
+use cosmic::iced::futures::SinkExt;
 use std::str::FromStr;
 
 const PREVIEW_LEN: usize = 32;
