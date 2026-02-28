@@ -91,7 +91,10 @@ pub fn is_first_launch() -> bool {
     let Some(config_dir) = dirs::config_dir() else {
         return true;
     };
-    !config_dir.join("cliphoard").join("first_launch_done").exists()
+    !config_dir
+        .join("cliphoard")
+        .join("first_launch_done")
+        .exists()
 }
 
 pub fn mark_first_launch_done() {
