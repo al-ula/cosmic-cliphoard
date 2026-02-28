@@ -5,12 +5,16 @@ Maintainer: Isa Al-Ula <isaalula@proton.me>
 Build-Depends: debhelper-compat (= 13),
                cargo (>= 1.85),
                rustc (>= 1.85),
-               just,
                gcc,
                git,
                libxkbcommon-dev,
                libwayland-dev,
+               libx11-dev,
+               libvulkan-dev,
                libdbus-1-dev,
+               libfontconfig1-dev,
+               libfreetype6-dev,
+               libgl1-mesa-dev,
                pkg-config
 Standards-Version: 4.6.2
 Homepage: https://github.com/al-ula/cosmic-cliphoard
