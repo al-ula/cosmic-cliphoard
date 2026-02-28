@@ -1,0 +1,14 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+
+override_dh_auto_build:
+	just build-release
+
+override_dh_auto_install:
+	just rootdir=debian/cliphoard prefix=/usr install
+
+override_dh_auto_test:
