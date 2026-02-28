@@ -6,6 +6,10 @@ use std::error::Error;
 use tracing::{debug, info};
 use zbus::Connection;
 
+const SERVICE_UNIT: &str = include_str!(
+    "../resources/systemd/cliphoard-daemon.service"
+);
+
 #[derive(Debug, thiserror::Error)]
 pub enum CommandError {
     #[error("D-Bus error: {0}")]
@@ -204,6 +208,36 @@ async fn unpin_entry(id: u64) -> Result<(), CommandError> {
     }
 
     Ok(())
+}
+
+pub fn generate_service(path: Option<std::path::PathBuf>) {
+    let dir = match path {
+        Some(d) => d,
+        None => match dirs::config_dir() {
+            Some(d) => d.join("systemd/user"),
+            None => {
+                eprintln!("Error: could not determine config directory");
+                std::process::exit(1);
+            }
+        },
+    };
+
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        eprintln!("Error creating {}: {e}", dir.display());
+        std::process::exit(1);
+    }
+
+    let path = dir.join("cliphoard-daemon.service");
+    if let Err(e) = std::fs::write(&path, SERVICE_UNIT) {
+        eprintln!("Error writing {}: {e}", path.display());
+        std::process::exit(1);
+    }
+
+    println!("Wrote service to {}", path.display());
+    println!("Run `systemctl --user daemon-reload` to reload units.");
+    println!(
+        "Run `systemctl --user enable --now cliphoard-daemon` to start."
+    );
 }
 
 async fn clear_history() -> Result<(), CommandError> {
