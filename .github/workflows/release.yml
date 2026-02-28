@@ -88,10 +88,10 @@ jobs:
           sudo apt-get install -y \
             libxkbcommon-dev libwayland-dev libx11-dev libvulkan-dev \
             libdbus-1-dev libfontconfig1-dev libfreetype6-dev libgl1-mesa-dev \
-            pkg-config dpkg-dev debhelper
+            pkg-config dpkg-dev debhelper build-essential
 
       - name: Build .deb package
-        run: dpkg-buildpackage -us -uc -b
+        run: dpkg-buildpackage -us -uc -b -d
 
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
@@ -118,14 +118,13 @@ jobs:
 
       - name: Build RPM
         run: |
-          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+          mkdir -p ~/rpmbuild/{RPMS,SPECS,SRPMS}
           cp cliphoard.spec ~/rpmbuild/SPECS/
-
-          # Build in the checkout directory, rpmbuild just needs the spec
           rpmbuild -bb \
             --define "_topdir $HOME/rpmbuild" \
-            --define "_builddir $GITHUB_WORKSPACE" \
-            --define "_sourcedir $GITHUB_WORKSPACE" \
+            --define "_builddir $(pwd)" \
+            --define "cargo_version ${VERSION}" \
             ~/rpmbuild/SPECS/cliphoard.spec
 
       - name: Upload .rpm artifact

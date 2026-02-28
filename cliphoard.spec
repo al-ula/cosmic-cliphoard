@@ -1,7 +1,7 @@
 %undefine _debugsource_packages
 
 Name:           cliphoard
-Version:        0.1.0
+Version:        %{cargo_version}
 Release:        1%{?dist}
 Summary:        Clipboard manager for COSMIC desktop
 
@@ -33,7 +33,7 @@ Features a panel applet, system tray icon, and background daemon
 with D-Bus integration.
 
 %prep
-%autosetup -n cosmic-cliphoard-%{version}
+# Binary-only build from git checkout; no tarball to unpack
 
 %build
 cargo build --release --locked

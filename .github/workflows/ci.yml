@@ -56,7 +56,7 @@ jobs:
           sudo apt-get install -y \
             libxkbcommon-dev libwayland-dev libx11-dev libvulkan-dev \
             libdbus-1-dev libfontconfig1-dev libfreetype6-dev libgl1-mesa-dev \
-            pkg-config dpkg-dev debhelper
+            pkg-config dpkg-dev debhelper build-essential
 
       - name: Build release binary
         run: cargo build --release
@@ -65,7 +65,7 @@ jobs:
         run: test -x target/release/cliphoard
 
       - name: Test Debian package build
-        run: dpkg-buildpackage -us -uc -b
+        run: dpkg-buildpackage -us -uc -b -d
 
       - name: Verify .deb was created
         run: ls -la ../*.deb
@@ -90,12 +90,13 @@ jobs:
 
       - name: Build RPM
         run: |
-          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+          mkdir -p ~/rpmbuild/{RPMS,SPECS,SRPMS}
           cp cliphoard.spec ~/rpmbuild/SPECS/
           rpmbuild -bb \
             --define "_topdir $HOME/rpmbuild" \
-            --define "_builddir $GITHUB_WORKSPACE" \
-            --define "_sourcedir $GITHUB_WORKSPACE" \
+            --define "_builddir $(pwd)" \
+            --define "cargo_version ${VERSION}" \
             ~/rpmbuild/SPECS/cliphoard.spec
 
       - name: Verify .rpm was created
