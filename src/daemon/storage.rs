@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use crate::schema::{ClipboardConfig, ClipboardHistory, Codec, JsonCodec, JsonError};
+use crate::schema::{ClipboardConfig, ClipboardHistory, Codec, OxiCodeCodec, OxiCodeError};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -11,8 +11,11 @@ pub enum StorageError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("JSON serialization error: {0}")]
-    Json(#[from] JsonError),
+    #[error("Serialization error: {0}")]
+    Codec(#[from] OxiCodeError),
+
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
 
     #[error("Failed to get data directory")]
     DataDir,
@@ -30,7 +33,12 @@ impl Storage {
 
         std::fs::create_dir_all(&cliphoard_dir)?;
 
-        let path = cliphoard_dir.join("history.json");
+        let old_json_path = cliphoard_dir.join("history.json");
+        if old_json_path.exists() {
+            warn!("Found old history.json; binary format now used — starting with empty history");
+        }
+
+        let path = cliphoard_dir.join("history.bin");
 
         let config_dir = dirs::config_dir().ok_or(StorageError::DataDir)?;
         let config_cliphoard_dir = config_dir.join("cliphoard");
@@ -60,7 +68,7 @@ impl Storage {
             return Ok(ClipboardHistory::default());
         }
 
-        match JsonCodec::deserialize::<ClipboardHistory>(&bytes) {
+        match OxiCodeCodec::deserialize::<ClipboardHistory>(&bytes) {
             Ok(history) => {
                 info!(len = history.len(), "Loaded history from disk");
                 Ok(history)
@@ -75,10 +83,10 @@ impl Storage {
     pub fn save(&self, history: &ClipboardHistory) -> Result<(), StorageError> {
         debug!(path = %self.path.display(), len = history.len(), "Saving history to disk");
 
-        let bytes = JsonCodec::serialize(history)?;
+        let bytes = OxiCodeCodec::serialize(history)?;
 
         // Write to temp file first, then rename for atomicity
-        let temp_path = self.path.with_extension("json.tmp");
+        let temp_path = self.path.with_extension("bin.tmp");
         std::fs::write(&temp_path, &bytes)?;
         std::fs::rename(&temp_path, &self.path)?;
 
@@ -121,7 +129,7 @@ impl Storage {
         debug!(?config, path = %self.config_path.display(), "Saving config to disk");
 
         let bytes = serde_json::to_vec_pretty(config)
-            .map_err(|e| StorageError::Json(JsonError::from(e)))?;
+            .map_err(StorageError::Json)?;
         let temp_path = self.config_path.with_extension("json.tmp");
         std::fs::write(&temp_path, &bytes)?;
         std::fs::rename(&temp_path, &self.config_path)?;
@@ -154,7 +162,7 @@ mod tests {
     #[test]
     fn save_and_load() {
         let dir = tempdir().unwrap();
-        let path = dir.path().join("history.json");
+        let path = dir.path().join("history.bin");
 
         let mut history = ClipboardHistory::new(10, 10, 1024 * 1024);
         history.push(MimeType::TextPlain, b"test data".to_vec());
