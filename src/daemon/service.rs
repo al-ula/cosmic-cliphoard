@@ -6,7 +6,7 @@ use crate::schema::{
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 use super::watcher::WatcherError;
@@ -25,8 +25,8 @@ pub enum ServiceError {
     #[error("Watcher error: {0}")]
     Watcher(#[from] WatcherError),
 
-    #[error("Failed to execute wl-copy: {0}")]
-    WlCopy(String),
+    #[error("Clipboard write error: {0}")]
+    ClipboardWrite(#[from] super::clipboard_writer::ClipboardWriteError),
 }
 
 pub struct ClipboardManagerService {
@@ -145,36 +145,34 @@ impl ClipboardManagerService {
             }
         };
 
-        let result = tokio::process::Command::new("wl-copy")
-            .arg("--type")
-            .arg(&data.0)
-            .stdin(std::process::Stdio::piped())
-            .spawn();
+        let mime = data.0;
+        let payload = data.1;
 
-        match result {
-            Ok(mut child) => {
-                use tokio::io::AsyncWriteExt;
-                if let Some(mut stdin) = child.stdin.take() {
-                    stdin.write_all(&data.1).await.ok();
-                }
-                let status = child.wait().await;
-                match status {
-                    Ok(s) if s.success() => {
-                        info!(id, "Pasted entry to clipboard");
-                        Ok(true)
-                    }
-                    Ok(s) => {
-                        warn!(?s, "wl-copy failed");
-                        Ok(false)
-                    }
-                    Err(e) => {
-                        error!("wl-copy error: {}", e);
-                        Ok(false)
-                    }
+        // The clipboard writer blocks until the source is cancelled (replaced by
+        // another copy). We use a oneshot channel so the caller knows the clipboard
+        // was set successfully, without waiting for the long-lived event loop.
+        let (tx, rx) = tokio::sync::oneshot::channel();
+
+        tokio::task::spawn_blocking(move || {
+            match super::clipboard_writer::write_to_clipboard(mime, payload, tx) {
+                Ok(()) => {}
+                Err(e) => {
+                    error!("Clipboard write failed: {}", e);
                 }
             }
-            Err(e) => {
-                error!("Failed to spawn wl-copy: {}", e);
+        });
+
+        match rx.await {
+            Ok(Ok(())) => {
+                info!(id, "Pasted entry to clipboard");
+                Ok(true)
+            }
+            Ok(Err(e)) => {
+                error!("Clipboard write setup failed: {}", e);
+                Ok(false)
+            }
+            Err(_) => {
+                error!("Clipboard writer dropped before confirming");
                 Ok(false)
             }
         }
