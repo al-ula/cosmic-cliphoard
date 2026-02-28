@@ -10,12 +10,6 @@ pub enum DecodeError {
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
 
-    #[error("Unsupported MIME type for decoding: {0}")]
-    UnsupportedMimeType(MimeType),
-
-    #[error("Invalid content: {0}")]
-    InvalidContent(String),
-
     #[error("UTF-8 decode error: {0}")]
     Utf8(#[from] std::string::FromUtf8Error),
 }

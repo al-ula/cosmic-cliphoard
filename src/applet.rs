@@ -105,10 +105,10 @@ impl AppletModel {
         let count = self.filtered_entries().len();
         if count == 0 {
             self.selected_index = None;
-        } else if let Some(idx) = self.selected_index {
-            if idx >= count {
-                self.selected_index = Some(count - 1);
-            }
+        } else if let Some(idx) = self.selected_index
+            && idx >= count
+        {
+            self.selected_index = Some(count - 1);
         }
     }
 }
@@ -201,7 +201,7 @@ impl Application for AppletModel {
                 });
             }
             Message::Settings => {
-                crate::launcher::spawn(["settings"].into_iter()).ok();
+                crate::launcher::spawn(["settings"]).ok();
                 if let Some(p) = self.popup.take() {
                     return destroy_popup(p);
                 }
@@ -322,15 +322,15 @@ impl Application for AppletModel {
                 }
             }
             Message::ActivateSelected => {
-                if let Some(id) = self.selected_entry_id() {
-                    if let Some(p) = self.popup.take() {
-                        return Task::batch(vec![
-                            destroy_popup(p),
-                            Task::perform(call_daemon_action(DaemonAction::Paste(id)), |r| {
-                                cosmic::Action::App(Message::ActionDone(r))
-                            }),
-                        ]);
-                    }
+                if let Some(id) = self.selected_entry_id()
+                    && let Some(p) = self.popup.take()
+                {
+                    return Task::batch(vec![
+                        destroy_popup(p),
+                        Task::perform(call_daemon_action(DaemonAction::Paste(id)), |r| {
+                            cosmic::Action::App(Message::ActionDone(r))
+                        }),
+                    ]);
                 }
             }
             // Keybinding actions on selected
