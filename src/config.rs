@@ -87,6 +87,21 @@ pub fn load_config() -> KeybindingsConfig {
     }
 }
 
+pub fn is_first_launch() -> bool {
+    let Some(config_dir) = dirs::config_dir() else {
+        return true;
+    };
+    !config_dir.join("cliphoard").join("first_launch_done").exists()
+}
+
+pub fn mark_first_launch_done() {
+    if let Some(config_dir) = dirs::config_dir() {
+        let dir = config_dir.join("cliphoard");
+        let _ = std::fs::create_dir_all(&dir);
+        let _ = std::fs::write(dir.join("first_launch_done"), b"");
+    }
+}
+
 pub fn save_keybindings(config: &KeybindingsConfig) -> Result<(), String> {
     let config_dir = dirs::config_dir()
         .ok_or_else(|| "Failed to get config directory".to_string())?
