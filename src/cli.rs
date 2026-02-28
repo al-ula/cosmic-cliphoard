@@ -47,24 +47,16 @@ pub enum Command {
     },
 
     /// Paste a clipboard entry by ID
-    Paste {
-        id: u64,
-    },
+    Paste { id: u64 },
 
     /// Delete a clipboard entry by ID
-    Delete {
-        id: u64,
-    },
+    Delete { id: u64 },
 
     /// Pin a clipboard entry by ID
-    Pin {
-        id: u64,
-    },
+    Pin { id: u64 },
 
     /// Unpin a clipboard entry by ID
-    Unpin {
-        id: u64,
-    },
+    Unpin { id: u64 },
 
     /// Clear all clipboard history
     Clear,
