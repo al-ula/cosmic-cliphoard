@@ -71,4 +71,3 @@ pub enum Command {
         path: Option<PathBuf>,
     },
 }
-

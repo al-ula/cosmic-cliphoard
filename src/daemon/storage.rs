@@ -122,7 +122,6 @@ impl Storage {
         info!("Config saved");
         Ok(())
     }
-
 }
 
 impl Default for Storage {
