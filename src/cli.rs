@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-use crate::schema::MimeType;
 use clap::{Parser, Subcommand};
 #[derive(Parser, Debug)]
 #[command(name = "cliphoard", version, about)]
@@ -73,8 +72,3 @@ pub enum Command {
     },
 }
 
-impl Command {
-    pub fn parse_mime(s: &str) -> Option<MimeType> {
-        Some(MimeType::parse(s))
-    }
-}

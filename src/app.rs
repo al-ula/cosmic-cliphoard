@@ -173,7 +173,6 @@ enum Message {
     SearchChanged(String),
     SearchChar(char),
     SearchBackspace,
-    PasteEntry(u64),
     CopyEntry(u64),
     DeleteEntry(u64),
     TogglePin(u64, bool),
@@ -390,16 +389,6 @@ impl OverlayState {
                     return Task::perform(fetch_entries(), Message::EntriesLoaded);
                 }
             }
-            Message::PasteEntry(id) => {
-                let hide = self.hide();
-                return Task::batch(vec![
-                    Task::perform(
-                        call_daemon_action(DaemonAction::Paste(id)),
-                        Message::ActionDone,
-                    ),
-                    hide,
-                ]);
-            }
             Message::CopyEntry(id) => {
                 let hide = self.hide();
                 return Task::batch(vec![
@@ -422,14 +411,14 @@ impl OverlayState {
             }
             Message::DeleteEntry(id) => {
                 let filtered_count = self.filtered_entries_count();
-                if let Some(idx) = self.selected_index {
-                    if idx >= filtered_count.saturating_sub(1) {
-                        self.selected_index = if filtered_count > 1 {
-                            Some(filtered_count - 2)
-                        } else {
-                            Some(0)
-                        };
-                    }
+                if let Some(idx) = self.selected_index
+                    && idx >= filtered_count.saturating_sub(1)
+                {
+                    self.selected_index = if filtered_count > 1 {
+                        Some(filtered_count - 2)
+                    } else {
+                        Some(0)
+                    };
                 }
                 return Task::perform(
                     call_daemon_action(DaemonAction::Delete(id)),
@@ -523,14 +512,14 @@ impl OverlayState {
             Message::DeleteSelected => {
                 if let Some(id) = self.selected_entry_id() {
                     let filtered_count = self.filtered_entries_count();
-                    if let Some(idx) = self.selected_index {
-                        if idx >= filtered_count.saturating_sub(1) {
-                            self.selected_index = if filtered_count > 1 {
-                                Some(filtered_count - 2)
-                            } else {
-                                Some(0)
-                            };
-                        }
+                    if let Some(idx) = self.selected_index
+                        && idx >= filtered_count.saturating_sub(1)
+                    {
+                        self.selected_index = if filtered_count > 1 {
+                            Some(filtered_count - 2)
+                        } else {
+                            Some(0)
+                        };
                     }
                     return Task::perform(
                         call_daemon_action(DaemonAction::Delete(id)),
@@ -545,18 +534,18 @@ impl OverlayState {
                 self.show_preview = !self.show_preview;
             }
             Message::TogglePinSelected => {
-                if let Some(id) = self.selected_entry_id() {
-                    if let Some(entry) = self.entries.iter().find(|e| e.id.0 == id) {
-                        let pinned = entry.pinned;
-                        return Task::perform(
-                            call_daemon_action(if pinned {
-                                DaemonAction::Unpin(id)
-                            } else {
-                                DaemonAction::Pin(id)
-                            }),
-                            Message::ActionDone,
-                        );
-                    }
+                if let Some(id) = self.selected_entry_id()
+                    && let Some(entry) = self.entries.iter().find(|e| e.id.0 == id)
+                {
+                    let pinned = entry.pinned;
+                    return Task::perform(
+                        call_daemon_action(if pinned {
+                            DaemonAction::Unpin(id)
+                        } else {
+                            DaemonAction::Pin(id)
+                        }),
+                        Message::ActionDone,
+                    );
                 }
             }
             Message::SettingsMaxUnpinnedChanged(value) => {
