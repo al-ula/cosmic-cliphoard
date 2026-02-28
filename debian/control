@@ -18,7 +18,7 @@ Rules-Requires-Root: no
 
 Package: cliphoard
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, wl-clipboard
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Clipboard manager for COSMIC desktop
  A clipboard manager built for the COSMIC desktop environment.
  Features a panel applet, system tray icon, and background daemon

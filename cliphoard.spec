@@ -20,8 +20,6 @@ BuildRequires:  pkgconfig(dbus-1)
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 
-Requires:       wl-clipboard
-
 %description
 A clipboard manager built for the COSMIC desktop environment.
 Features a panel applet, system tray icon, and background daemon
