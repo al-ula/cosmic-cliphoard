@@ -2,8 +2,6 @@
 
 use crate::schema::{ClipboardConfig, ClipboardHistory, Codec, OxiCodeCodec, OxiCodeError};
 use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 #[derive(Debug, thiserror::Error)]
@@ -50,10 +48,6 @@ impl Storage {
         Ok(Self { path, config_path })
     }
 
-    pub fn path(&self) -> &std::path::Path {
-        &self.path
-    }
-
     pub fn load(&self) -> Result<ClipboardHistory, StorageError> {
         if !self.path.exists() {
             info!("No existing history file, starting fresh");
@@ -94,14 +88,6 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn save_async(
-        &self,
-        history: Arc<RwLock<ClipboardHistory>>,
-    ) -> Result<(), StorageError> {
-        let hist = history.read().await;
-        self.save(&hist)
-    }
-
     pub fn load_config(&self) -> ClipboardConfig {
         if !self.config_path.exists() {
             debug!("No config file found, using defaults");
@@ -137,13 +123,6 @@ impl Storage {
         Ok(())
     }
 
-    pub fn clear(&self) -> Result<(), StorageError> {
-        if self.path.exists() {
-            std::fs::remove_file(&self.path)?;
-            info!("History file removed");
-        }
-        Ok(())
-    }
 }
 
 impl Default for Storage {
