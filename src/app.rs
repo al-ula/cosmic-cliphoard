@@ -92,6 +92,7 @@ struct OverlayState {
     settings_keybindings: SettingsKeybindings,
     capturing_keybinding: CapturingKeybinding,
     keybinding_errors: KeybindingErrors,
+    show_tips: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -199,6 +200,7 @@ enum Message {
     ResetSettings,
     SettingsSaved(Result<(), String>),
     OpenUrl(String),
+    DismissTips,
 }
 
 impl std::fmt::Debug for OverlayState {
@@ -230,6 +232,7 @@ impl OverlayState {
             settings_keybindings,
             capturing_keybinding: CapturingKeybinding::None,
             keybinding_errors: KeybindingErrors::default(),
+            show_tips: crate::config::is_first_launch(),
         };
         if let Ok(mut kb) = KEYBINDINGS.write() {
             *kb = Some(state.config.clone());
@@ -663,8 +666,60 @@ impl OverlayState {
             Message::OpenUrl(url) => {
                 let _ = open::that(&url);
             }
+            Message::DismissTips => {
+                self.show_tips = false;
+                crate::config::mark_first_launch_done();
+            }
         }
         Task::none()
+    }
+
+    fn tips_view(&self) -> Element<'_, Message> {
+        let space_s = cosmic::theme::spacing().space_s;
+        let space_xs = cosmic::theme::spacing().space_xs;
+
+        let title = widget::text::title4(fl!("tips-title"));
+
+        let tips = widget::column::with_capacity(6)
+            .push(widget::text::body(fl!("tips-shortcut")))
+            .push(widget::text::body(fl!(
+                "tips-pin",
+                keybinding = self.config.toggle_pin.to_string()
+            )))
+            .push(widget::text::body(fl!(
+                "tips-preview",
+                keybinding = self.config.toggle_preview.to_string()
+            )))
+            .push(widget::text::body(fl!(
+                "tips-delete",
+                keybinding = self.config.delete_entry.to_string()
+            )))
+            .push(widget::text::body(fl!(
+                "tips-tabs",
+                keybinding_all = self.config.tab_all.to_string(),
+                keybinding_pinned = self.config.tab_pinned.to_string()
+            )))
+            .spacing(space_xs);
+
+        let dismiss = widget::button::text(fl!("tips-dismiss"))
+            .on_press(Message::DismissTips)
+            .class(cosmic::theme::Button::Suggested);
+
+        let content = widget::column::with_capacity(3)
+            .push(title)
+            .push(tips)
+            .push(
+                widget::row::with_capacity(1)
+                    .push(widget::horizontal_space())
+                    .push(dismiss),
+            )
+            .spacing(space_s)
+            .padding(space_s);
+
+        widget::container(content)
+            .width(Length::Fixed(LIST_PANEL_WIDTH))
+            .class(cosmic::theme::Container::Primary)
+            .into()
     }
 
     fn keybinding_row<'a>(
@@ -1220,6 +1275,22 @@ impl OverlayState {
                     }
                 },
             )));
+
+        let panel: Element<'_, Message> = if self.show_tips {
+            let tips = self.tips_view();
+            cosmic::iced::widget::stack![
+                panel,
+                widget::container(tips)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .align_x(cosmic::iced::alignment::Horizontal::Center)
+                    .align_y(cosmic::iced::alignment::Vertical::Center)
+                    .padding(space_s),
+            ]
+            .into()
+        } else {
+            panel.into()
+        };
 
         let panel = widget::mouse_area(panel).on_press(Message::NoOp);
 
