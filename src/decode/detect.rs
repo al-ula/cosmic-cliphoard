@@ -25,9 +25,7 @@ pub fn detect_mime(data: &[u8]) -> MimeType {
             return MimeType::Other("application/pdf".into());
         }
 
-        if &data[0..4] == b"RIFF" && data.len() >= 8
-            && &data[8..12] == b"WEBP"
-        {
+        if &data[0..4] == b"RIFF" && data.len() >= 8 && &data[8..12] == b"WEBP" {
             debug!("Detected WebP by magic bytes");
             return MimeType::Other("image/webp".into());
         }
