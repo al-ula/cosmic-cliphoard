@@ -6,9 +6,7 @@ use std::error::Error;
 use tracing::{debug, info};
 use zbus::Connection;
 
-const SERVICE_UNIT: &str = include_str!(
-    "../resources/systemd/cliphoard-daemon.service"
-);
+const SERVICE_UNIT: &str = include_str!("../resources/systemd/cliphoard-daemon.service");
 
 #[derive(Debug, thiserror::Error)]
 pub enum CommandError {
@@ -235,9 +233,7 @@ pub fn generate_service(path: Option<std::path::PathBuf>) {
 
     println!("Wrote service to {}", path.display());
     println!("Run `systemctl --user daemon-reload` to reload units.");
-    println!(
-        "Run `systemctl --user enable --now cliphoard-daemon` to start."
-    );
+    println!("Run `systemctl --user enable --now cliphoard-daemon` to start.");
 }
 
 async fn clear_history() -> Result<(), CommandError> {

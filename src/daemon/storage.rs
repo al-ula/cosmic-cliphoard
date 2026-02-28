@@ -128,8 +128,7 @@ impl Storage {
     pub fn save_config(&self, config: &ClipboardConfig) -> Result<(), StorageError> {
         debug!(?config, path = %self.config_path.display(), "Saving config to disk");
 
-        let bytes = serde_json::to_vec_pretty(config)
-            .map_err(StorageError::Json)?;
+        let bytes = serde_json::to_vec_pretty(config).map_err(StorageError::Json)?;
         let temp_path = self.config_path.with_extension("json.tmp");
         std::fs::write(&temp_path, &bytes)?;
         std::fs::rename(&temp_path, &self.config_path)?;

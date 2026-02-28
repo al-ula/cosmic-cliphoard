@@ -7,6 +7,7 @@ use crate::fl;
 use crate::schema::entry::ClipboardEntry;
 use crate::schema::{Codec, DBUS_NAME, DBUS_PATH, OxiCodeCodec};
 use cosmic::iced::event::{self, Event, listen_raw};
+use cosmic::iced::futures::SinkExt;
 use cosmic::iced::platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings;
 use cosmic::iced::platform_specific::shell::commands::layer_surface::{
     Anchor, KeyboardInteractivity, Layer, destroy_layer_surface, get_layer_surface,
@@ -18,7 +19,6 @@ use cosmic::iced_core::widget::Id;
 use cosmic::iced_runtime::Appearance;
 use cosmic::widget;
 use cosmic::{Element, Theme};
-use cosmic::iced::futures::SinkExt;
 use std::str::FromStr;
 
 const PREVIEW_LEN: usize = 32;
@@ -748,8 +748,7 @@ impl OverlayState {
         let body = widget::text::body(fl!("daemon-notice-body"));
 
         let service_cmd = widget::container(
-            widget::text::body(fl!("daemon-notice-service"))
-                .font(cosmic::iced::Font::MONOSPACE),
+            widget::text::body(fl!("daemon-notice-service")).font(cosmic::iced::Font::MONOSPACE),
         )
         .padding([4, 8])
         .class(cosmic::theme::Container::Primary);
@@ -757,8 +756,7 @@ impl OverlayState {
         let or_label = widget::text::body(fl!("daemon-notice-or"));
 
         let manual_cmd = widget::container(
-            widget::text::body(fl!("daemon-notice-command"))
-                .font(cosmic::iced::Font::MONOSPACE),
+            widget::text::body(fl!("daemon-notice-command")).font(cosmic::iced::Font::MONOSPACE),
         )
         .padding([4, 8])
         .class(cosmic::theme::Container::Primary);
