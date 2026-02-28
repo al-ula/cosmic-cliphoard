@@ -2,9 +2,8 @@
 
 //! Shared types and D-Bus interface definitions for the cliphoard clipboard manager.
 //!
-//! Supports dual serialization:
-//! - **oxicode** for efficient IPC between processes
-//! - **JSON** for human-readable storage and debugging
+//! Uses **oxicode** for efficient binary serialization (IPC and history storage)
+//! and **JSON** for human-editable config files.
 
 pub mod codec;
 pub mod config;
@@ -13,7 +12,7 @@ pub mod entry;
 pub mod history;
 pub mod mime;
 
-pub use codec::{Codec, JsonCodec, JsonError, OxiCodeCodec, OxiCodeError};
+pub use codec::{Codec, OxiCodeCodec, OxiCodeError};
 pub use config::{ClipboardConfig, KeyBinding, KeybindingsConfig};
 pub use dbus::ClipboardManagerProxy;
 pub use entry::{ClipboardEntry, EntryId};
