@@ -93,6 +93,8 @@ struct OverlayState {
     capturing_keybinding: CapturingKeybinding,
     keybinding_errors: KeybindingErrors,
     show_tips: bool,
+    show_daemon_notice: bool,
+    daemon_notice_dismissed: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -201,6 +203,7 @@ enum Message {
     SettingsSaved(Result<(), String>),
     OpenUrl(String),
     DismissTips,
+    DismissDaemonNotice,
 }
 
 impl std::fmt::Debug for OverlayState {
@@ -233,6 +236,8 @@ impl OverlayState {
             capturing_keybinding: CapturingKeybinding::None,
             keybinding_errors: KeybindingErrors::default(),
             show_tips: crate::config::is_first_launch(),
+            show_daemon_notice: false,
+            daemon_notice_dismissed: false,
         };
         if let Ok(mut kb) = KEYBINDINGS.write() {
             *kb = Some(state.config.clone());
@@ -342,6 +347,7 @@ impl OverlayState {
                     let was_empty = self.entries.is_empty();
                     self.entries = entries;
                     self.error = None;
+                    self.show_daemon_notice = false;
                     if was_empty {
                         self.selected_index = Some(0);
                     } else if let Some(idx) = self.selected_index {
@@ -354,6 +360,9 @@ impl OverlayState {
                     }
                 }
                 Err(e) => {
+                    if !self.daemon_notice_dismissed {
+                        self.show_daemon_notice = true;
+                    }
                     self.error = Some(e);
                 }
             },
@@ -670,6 +679,10 @@ impl OverlayState {
                 self.show_tips = false;
                 crate::config::mark_first_launch_done();
             }
+            Message::DismissDaemonNotice => {
+                self.show_daemon_notice = false;
+                self.daemon_notice_dismissed = true;
+            }
         }
         Task::none()
     }
@@ -714,6 +727,54 @@ impl OverlayState {
                     .push(dismiss),
             )
             .spacing(space_s)
+            .padding(space_s);
+
+        widget::container(content)
+            .width(Length::Fixed(LIST_PANEL_WIDTH))
+            .class(cosmic::theme::Container::Primary)
+            .into()
+    }
+
+    fn daemon_notice_view(&self) -> Element<'_, Message> {
+        let space_s = cosmic::theme::spacing().space_s;
+        let space_xs = cosmic::theme::spacing().space_xs;
+
+        let title = widget::text::title4(fl!("daemon-notice-title"));
+
+        let body = widget::text::body(fl!("daemon-notice-body"));
+
+        let service_cmd = widget::container(
+            widget::text::body(fl!("daemon-notice-service"))
+                .font(cosmic::iced::Font::MONOSPACE),
+        )
+        .padding([4, 8])
+        .class(cosmic::theme::Container::Primary);
+
+        let or_label = widget::text::body(fl!("daemon-notice-or"));
+
+        let manual_cmd = widget::container(
+            widget::text::body(fl!("daemon-notice-command"))
+                .font(cosmic::iced::Font::MONOSPACE),
+        )
+        .padding([4, 8])
+        .class(cosmic::theme::Container::Primary);
+
+        let dismiss = widget::button::text(fl!("daemon-notice-dismiss"))
+            .on_press(Message::DismissDaemonNotice)
+            .class(cosmic::theme::Button::Suggested);
+
+        let content = widget::column::with_capacity(6)
+            .push(title)
+            .push(body)
+            .push(service_cmd)
+            .push(or_label)
+            .push(manual_cmd)
+            .push(
+                widget::row::with_capacity(1)
+                    .push(widget::horizontal_space())
+                    .push(dismiss),
+            )
+            .spacing(space_xs)
             .padding(space_s);
 
         widget::container(content)
@@ -1279,6 +1340,18 @@ impl OverlayState {
             cosmic::iced::widget::stack![
                 panel,
                 widget::container(tips)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .align_x(cosmic::iced::alignment::Horizontal::Center)
+                    .align_y(cosmic::iced::alignment::Vertical::Center)
+                    .padding(space_s),
+            ]
+            .into()
+        } else if self.show_daemon_notice {
+            let notice = self.daemon_notice_view();
+            cosmic::iced::widget::stack![
+                panel,
+                widget::container(notice)
                     .width(Length::Fill)
                     .height(Length::Fill)
                     .align_x(cosmic::iced::alignment::Horizontal::Center)
