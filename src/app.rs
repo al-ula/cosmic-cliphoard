@@ -401,10 +401,14 @@ impl OverlayState {
                 ]);
             }
             Message::CopyEntry(id) => {
-                return Task::perform(
-                    call_daemon_action(DaemonAction::Paste(id)),
-                    Message::ActionDone,
-                );
+                let hide = self.hide();
+                return Task::batch(vec![
+                    Task::perform(
+                        call_daemon_action(DaemonAction::Paste(id)),
+                        Message::ActionDone,
+                    ),
+                    hide,
+                ]);
             }
             Message::SelectIndex(idx) => {
                 self.selected_index = Some(idx);
