@@ -1259,9 +1259,7 @@ impl OverlayState {
                     cosmic::iced::widget::container::Style {
                         icon_color: Some(Color::from(cosmic.on_bg_color())),
                         text_color: Some(Color::from(cosmic.on_bg_color())),
-                        background: Some(cosmic::iced::Background::Color(
-                            cosmic.bg_color().into(),
-                        )),
+                        background: Some(cosmic::iced::Background::Color(cosmic.bg_color().into())),
                         shadow: cosmic::iced::Shadow {
                             color: Color::from_rgba(0.0, 0.0, 0.0, 0.4),
                             offset: cosmic::iced::Vector::new(0.0, 4.0),
