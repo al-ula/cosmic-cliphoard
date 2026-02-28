@@ -56,6 +56,7 @@ pub enum Message {
     TogglePinSelected,
     DeleteSelected,
     DismissTips,
+    DismissDaemonNotice,
 }
 
 pub struct AppletModel {
@@ -70,6 +71,7 @@ pub struct AppletModel {
     scrollable_id: Id,
     search_input_id: widget::Id,
     show_tips: bool,
+    show_daemon_notice: bool,
 }
 
 impl AppletModel {
@@ -144,6 +146,7 @@ impl Application for AppletModel {
                 scrollable_id: Id::unique(),
                 search_input_id: widget::Id::unique(),
                 show_tips: crate::config::is_first_launch(),
+                show_daemon_notice: false,
             },
             cosmic::app::Task::none(),
         )
@@ -208,12 +211,14 @@ impl Application for AppletModel {
                     let was_empty = self.entries.is_empty();
                     self.entries = entries;
                     self.error = None;
+                    self.show_daemon_notice = false;
                     if was_empty && !self.entries.is_empty() {
                         self.selected_index = Some(0);
                     }
                     self.clamp_selection();
                 }
                 Err(e) => {
+                    self.show_daemon_notice = true;
                     self.error = Some(e);
                     self.entries.clear();
                     self.selected_index = None;
@@ -358,6 +363,9 @@ impl Application for AppletModel {
                 self.show_tips = false;
                 crate::config::mark_first_launch_done();
             }
+            Message::DismissDaemonNotice => {
+                self.show_daemon_notice = false;
+            }
         }
         cosmic::app::Task::none()
     }
@@ -411,6 +419,42 @@ impl Application for AppletModel {
                 .padding(8);
 
             return self.core.applet.popup_container(tips).into();
+        }
+
+        if self.show_daemon_notice {
+            let notice = widget::column::with_capacity(6)
+                .push(widget::text::title4(fl!("daemon-notice-title")))
+                .push(widget::text::body(fl!("daemon-notice-body")))
+                .push(
+                    widget::container(
+                        widget::text::body(fl!("daemon-notice-service"))
+                            .font(cosmic::iced::Font::MONOSPACE),
+                    )
+                    .padding([4, 8])
+                    .class(cosmic::theme::Container::Primary),
+                )
+                .push(widget::text::body(fl!("daemon-notice-or")))
+                .push(
+                    widget::container(
+                        widget::text::body(fl!("daemon-notice-command"))
+                            .font(cosmic::iced::Font::MONOSPACE),
+                    )
+                    .padding([4, 8])
+                    .class(cosmic::theme::Container::Primary),
+                )
+                .push(
+                    widget::row::with_capacity(2)
+                        .push(widget::horizontal_space())
+                        .push(
+                            widget::button::text(fl!("daemon-notice-dismiss"))
+                                .on_press(Message::DismissDaemonNotice)
+                                .class(cosmic::theme::Button::Suggested),
+                        ),
+                )
+                .spacing(space_xs)
+                .padding(8);
+
+            return self.core.applet.popup_container(notice).into();
         }
 
         let filtered = self.filtered_entries();
