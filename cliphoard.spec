@@ -11,14 +11,21 @@ Source0:        %{url}/archive/v%{version}/cosmic-cliphoard-%{version}.tar.gz
 
 BuildRequires:  cargo >= 1.85
 BuildRequires:  rust >= 1.85
-BuildRequires:  just
 BuildRequires:  gcc
 BuildRequires:  git
 BuildRequires:  pkgconfig(xkbcommon)
 BuildRequires:  pkgconfig(wayland-client)
+BuildRequires:  pkgconfig(x11)
 BuildRequires:  pkgconfig(dbus-1)
+BuildRequires:  pkgconfig(fontconfig)
+BuildRequires:  pkgconfig(freetype2)
+BuildRequires:  vulkan-loader-devel
+BuildRequires:  mesa-libGL-devel
+BuildRequires:  systemd-rpm-macros
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
+
+Requires:       hicolor-icon-theme
 
 %description
 A clipboard manager built for the COSMIC desktop environment.
@@ -29,10 +36,15 @@ with D-Bus integration.
 %autosetup -n cosmic-cliphoard-%{version}
 
 %build
-just build-release
+cargo build --release --locked
 
 %install
-just rootdir=%{buildroot} prefix=%{_prefix} install
+install -Dm0755 target/release/cliphoard %{buildroot}%{_bindir}/cliphoard
+install -Dm0644 resources/com.github.al_ula.Cliphoard.desktop %{buildroot}%{_datadir}/applications/com.github.al_ula.Cliphoard.desktop
+install -Dm0644 resources/com.github.al_ula.Cliphoard.Applet.desktop %{buildroot}%{_datadir}/applications/com.github.al_ula.Cliphoard.Applet.desktop
+install -Dm0644 resources/com.github.al_ula.Cliphoard.metainfo.xml %{buildroot}%{_datadir}/appdata/com.github.al_ula.Cliphoard.metainfo.xml
+install -Dm0644 resources/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard.svg
+install -Dm0644 resources/systemd/cliphoard-daemon.service %{buildroot}%{_prefix}/lib/systemd/user/cliphoard-daemon.service
 
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
