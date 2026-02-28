@@ -59,6 +59,10 @@ fn main() -> cosmic::iced::Result {
             commands::run_decode(mime, json);
             Ok(())
         }
+        Some(cli::Command::GenerateService { path }) => {
+            commands::generate_service(path);
+            Ok(())
+        }
         Some(cmd) => {
             tokio::runtime::Runtime::new()
                 .expect("failed to create tokio runtime")
