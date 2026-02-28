@@ -24,7 +24,7 @@ pub enum Command {
     /// Run the clipboard daemon
     Daemon,
 
-    /// Decode clipboard content from stdin
+    /// Decode clipboard content from stdin (-m MIME, -j for JSON)
     Decode {
         /// MIME type of the input
         #[arg(short, long)]
@@ -35,7 +35,7 @@ pub enum Command {
         json: bool,
     },
 
-    /// List clipboard entries
+    /// List clipboard entries (-n LIMIT, -q QUERY)
     List {
         /// Maximum number of entries to show
         #[arg(short = 'n', long)]
@@ -56,12 +56,12 @@ pub enum Command {
         id: u64,
     },
 
-    /// Pin a clipboard entry
+    /// Pin a clipboard entry by ID
     Pin {
         id: u64,
     },
 
-    /// Unpin a clipboard entry
+    /// Unpin a clipboard entry by ID
     Unpin {
         id: u64,
     },
@@ -72,7 +72,7 @@ pub enum Command {
     /// Open the settings overlay
     Settings,
 
-    /// Generate the systemd user service file
+    /// Generate the systemd user service file (use -p to set output path)
     GenerateService {
         /// Directory to write the service file into
         /// [default: ~/.config/systemd/user]
