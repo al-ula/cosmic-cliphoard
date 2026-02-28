@@ -55,6 +55,7 @@ pub enum Message {
     // Keybinding actions on selected
     TogglePinSelected,
     DeleteSelected,
+    DismissTips,
 }
 
 pub struct AppletModel {
@@ -68,6 +69,7 @@ pub struct AppletModel {
     config: KeybindingsConfig,
     scrollable_id: Id,
     search_input_id: widget::Id,
+    show_tips: bool,
 }
 
 impl AppletModel {
@@ -141,6 +143,7 @@ impl Application for AppletModel {
                 config,
                 scrollable_id: Id::unique(),
                 search_input_id: widget::Id::unique(),
+                show_tips: crate::config::is_first_launch(),
             },
             cosmic::app::Task::none(),
         )
@@ -351,6 +354,10 @@ impl Application for AppletModel {
                     });
                 }
             }
+            Message::DismissTips => {
+                self.show_tips = false;
+                crate::config::mark_first_launch_done();
+            }
         }
         cosmic::app::Task::none()
     }
@@ -373,6 +380,38 @@ impl Application for AppletModel {
 
     fn view_window(&self, _id: window::Id) -> Element<'_, Message> {
         let space_xs = cosmic::theme::spacing().space_xs;
+
+        if self.show_tips {
+            let tips = widget::column::with_capacity(7)
+                .push(widget::text::title4(fl!("tips-title")))
+                .push(widget::text::body(fl!("tips-shortcut")))
+                .push(widget::text::body(fl!(
+                    "tips-pin",
+                    keybinding = self.config.toggle_pin.to_string()
+                )))
+                .push(widget::text::body(fl!(
+                    "tips-delete",
+                    keybinding = self.config.delete_entry.to_string()
+                )))
+                .push(widget::text::body(fl!(
+                    "tips-tabs",
+                    keybinding_all = self.config.tab_all.to_string(),
+                    keybinding_pinned = self.config.tab_pinned.to_string()
+                )))
+                .push(
+                    widget::row::with_capacity(2)
+                        .push(widget::horizontal_space())
+                        .push(
+                            widget::button::text(fl!("tips-dismiss"))
+                                .on_press(Message::DismissTips)
+                                .class(cosmic::theme::Button::Suggested),
+                        ),
+                )
+                .spacing(space_xs)
+                .padding(8);
+
+            return self.core.applet.popup_container(tips).into();
+        }
 
         let filtered = self.filtered_entries();
 
