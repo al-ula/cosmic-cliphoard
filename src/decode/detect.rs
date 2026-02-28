@@ -1,17 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use crate::schema::MimeType;
-use std::io::Read;
-use thiserror::Error;
 use tracing::debug;
-
-const MAGIC_BUFFER_SIZE: usize = 64;
-
-#[derive(Debug, Error)]
-pub enum DetectionError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-}
 
 pub fn detect_mime(data: &[u8]) -> MimeType {
     if data.len() >= 4 {
@@ -20,7 +10,7 @@ pub fn detect_mime(data: &[u8]) -> MimeType {
             return MimeType::ImagePng;
         }
 
-        if &data[0..3] == &[0xFF, 0xD8, 0xFF] {
+        if data[0..3] == [0xFF, 0xD8, 0xFF] {
             debug!("Detected JPEG by magic bytes");
             return MimeType::ImageJpeg;
         }
@@ -35,11 +25,11 @@ pub fn detect_mime(data: &[u8]) -> MimeType {
             return MimeType::Other("application/pdf".into());
         }
 
-        if &data[0..4] == b"RIFF" && data.len() >= 8 {
-            if &data[8..12] == b"WEBP" {
-                debug!("Detected WebP by magic bytes");
-                return MimeType::Other("image/webp".into());
-            }
+        if &data[0..4] == b"RIFF" && data.len() >= 8
+            && &data[8..12] == b"WEBP"
+        {
+            debug!("Detected WebP by magic bytes");
+            return MimeType::Other("image/webp".into());
         }
     }
 
@@ -52,11 +42,11 @@ pub fn detect_mime(data: &[u8]) -> MimeType {
             let snippet = &data[start..];
             if snippet.starts_with(b"<svg") || snippet.starts_with(b"<?xml") {
                 let s = std::str::from_utf8(&data[start..data.len().min(start + 100)]);
-                if let Ok(s) = s {
-                    if s.contains("<svg") {
-                        debug!("Detected SVG by content");
-                        return MimeType::ImageSvg;
-                    }
+                if let Ok(s) = s
+                    && s.contains("<svg")
+                {
+                    debug!("Detected SVG by content");
+                    return MimeType::ImageSvg;
                 }
             }
         }
@@ -73,17 +63,17 @@ pub fn detect_mime(data: &[u8]) -> MimeType {
             return MimeType::TextHtml;
         }
 
-        if lower.contains("file://") || lower.contains("http://") || lower.contains("https://") {
-            if lower.lines().all(|line| {
+        if (lower.contains("file://") || lower.contains("http://") || lower.contains("https://"))
+            && lower.lines().all(|line| {
                 line.is_empty()
                     || line.starts_with('#')
                     || line.starts_with("file://")
                     || line.starts_with("http://")
                     || line.starts_with("https://")
-            }) {
-                debug!("Detected URI list by content");
-                return MimeType::TextUri;
-            }
+            })
+        {
+            debug!("Detected URI list by content");
+            return MimeType::TextUri;
         }
 
         debug!("Detected plain text (valid UTF-8)");
@@ -92,12 +82,6 @@ pub fn detect_mime(data: &[u8]) -> MimeType {
 
     debug!("Unknown binary content, defaulting to octet-stream");
     MimeType::Other("application/octet-stream".into())
-}
-
-pub fn detect_mime_from_reader<R: Read>(mut reader: R) -> Result<MimeType, DetectionError> {
-    let mut buffer = [0u8; MAGIC_BUFFER_SIZE];
-    let bytes_read = reader.read(&mut buffer)?;
-    Ok(detect_mime(&buffer[..bytes_read]))
 }
 
 #[cfg(test)]

@@ -3,7 +3,7 @@
 //! Clipboard entry types.
 
 use super::MimeType;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -44,10 +44,6 @@ impl ClipboardEntry {
             timestamp_ms: Utc::now().timestamp_millis(),
             pinned: false,
         }
-    }
-
-    pub fn timestamp(&self) -> DateTime<Utc> {
-        DateTime::from_timestamp_millis(self.timestamp_ms).unwrap_or_default()
     }
 
     pub fn as_text(&self) -> Option<&str> {

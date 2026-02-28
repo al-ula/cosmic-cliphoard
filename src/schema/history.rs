@@ -137,10 +137,6 @@ impl ClipboardHistory {
         self.entries.len()
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
-    }
-
     pub fn pinned_count(&self) -> usize {
         self.entries.iter().filter(|e| e.pinned).count()
     }

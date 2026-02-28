@@ -21,9 +21,6 @@ pub enum CommandError {
 
     #[error("Entry not found: {0}")]
     NotFound(u64),
-
-    #[error("Daemon not running. Start with `cliphoard daemon`")]
-    DaemonNotRunning,
 }
 
 async fn get_proxy() -> Result<ClipboardManagerProxy<'static>, CommandError> {
@@ -127,7 +124,7 @@ async fn list_entries(limit: Option<usize>, query: Option<String>) -> Result<(),
         return Ok(());
     }
 
-    println!("{:<8} {:<6} {:<10} {}", "ID", "Pinned", "MIME", "Preview");
+    println!("{:<8} {:<6} {:<10} Preview", "ID", "Pinned", "MIME");
     println!("{}", "-".repeat(60));
 
     for entry in entries {
