@@ -12,3 +12,5 @@ debian/*
 !debian/rules
 !debian/source
 dist/
+**/*.rpm
+**/*.tar.gz
