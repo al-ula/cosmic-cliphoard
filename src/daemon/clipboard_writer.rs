@@ -9,11 +9,8 @@ use cosmic::cctk::{
     },
     wayland_client::{
         Connection, Dispatch, Proxy, event_created_child,
-        globals::{registry_queue_init, GlobalListContents},
-        protocol::{
-            wl_registry::WlRegistry,
-            wl_seat::WlSeat,
-        },
+        globals::{GlobalListContents, registry_queue_init},
+        protocol::{wl_registry::WlRegistry, wl_seat::WlSeat},
     },
 };
 use std::fs::File;
@@ -28,10 +25,7 @@ pub enum ClipboardWriteError {
     Dispatch(#[from] cosmic::cctk::wayland_client::DispatchError),
 
     #[error("Missing required protocol: {name} v{version}")]
-    MissingProtocol {
-        name: &'static str,
-        version: u32,
-    },
+    MissingProtocol { name: &'static str, version: u32 },
 
     #[error("No seats available")]
     NoSeats,
