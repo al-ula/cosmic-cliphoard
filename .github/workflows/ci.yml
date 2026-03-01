@@ -96,6 +96,7 @@ jobs:
           rpmbuild -bb \
             --define "_topdir $HOME/rpmbuild" \
             --define "_builddir $(pwd)" \
+            --define "buildsubdir %{nil}" \
             --define "cargo_version ${VERSION}" \
             ~/rpmbuild/SPECS/cliphoard.spec
 
