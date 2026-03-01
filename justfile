@@ -45,9 +45,10 @@ install:
     install -Dm0644 {{ 'resources' / appdata }} {{appdata-dst}}
     install -Dm0644 {{ 'resources' / 'icons' / 'hicolor' / 'scalable' / 'apps' / icon-svg }} {{icon-svg-dst / icon-svg}}
     install -Dm0644 {{ 'resources' / 'systemd' / 'cliphoard-daemon.service' }} {{systemd-user-dst / 'cliphoard-daemon.service'}}
+    install -Dm0644 {{ 'resources' / 'systemd' / 'cliphoard-tray.service' }} {{systemd-user-dst / 'cliphoard-tray.service'}}
 
 uninstall:
-    rm {{bin-dst}} {{desktop-dst}} {{applet-desktop-dst}} {{icon-svg-dst / icon-svg}} {{systemd-user-dst / 'cliphoard-daemon.service'}}
+    rm {{bin-dst}} {{desktop-dst}} {{applet-desktop-dst}} {{icon-svg-dst / icon-svg}} {{systemd-user-dst / 'cliphoard-daemon.service'}} {{systemd-user-dst / 'cliphoard-tray.service'}}
 
 sync-version:
     set -euo pipefail
