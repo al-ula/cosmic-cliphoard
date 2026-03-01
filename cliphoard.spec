@@ -33,7 +33,7 @@ Features a panel applet, system tray icon, and background daemon
 with D-Bus integration.
 
 %prep
-# Binary-only build from git checkout; no tarball to unpack
+# No tarball to unpack; building directly from git checkout
 
 %build
 cargo build --release --locked --target-dir target
