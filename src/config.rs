@@ -9,11 +9,11 @@ pub use crate::schema::{KeyBinding, KeybindingsConfig};
 pub type Config = KeybindingsConfig;
 
 pub trait KeyBindingExt {
-    fn matches(&self, key: &keyboard::Key, modifiers: &Modifiers) -> bool;
+    fn matches(&self, key: &keyboard::Key, modifiers: Modifiers) -> bool;
 }
 
 impl KeyBindingExt for KeyBinding {
-    fn matches(&self, key: &keyboard::Key, modifiers: &Modifiers) -> bool {
+    fn matches(&self, key: &keyboard::Key, modifiers: Modifiers) -> bool {
         if modifiers.control() != self.ctrl
             || modifiers.alt() != self.alt
             || modifiers.shift() != self.shift
@@ -22,14 +22,14 @@ impl KeyBindingExt for KeyBinding {
         }
 
         match key {
-            keyboard::Key::Named(named) => self.key == named_key_to_str(named),
+            keyboard::Key::Named(named) => self.key == named_key_to_str(*named),
             keyboard::Key::Character(c) => c.as_ref().eq_ignore_ascii_case(&self.key),
-            _ => false,
+            keyboard::Key::Unidentified => false,
         }
     }
 }
 
-fn named_key_to_str(named: &Named) -> &'static str {
+fn named_key_to_str(named: Named) -> &'static str {
     match named {
         Named::Delete => "Delete",
         Named::ArrowLeft => "ArrowLeft",

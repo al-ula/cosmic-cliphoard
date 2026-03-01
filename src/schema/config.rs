@@ -137,10 +137,7 @@ impl FromStr for KeyBinding {
                 "shift" => shift = true,
                 _ => {
                     if let Some(existing) = &key {
-                        return Err(format!(
-                            "multiple keys specified: {} and {}",
-                            existing, part
-                        ));
+                        return Err(format!("multiple keys specified: {existing} and {part}"));
                     }
                     key = Some(part.to_string());
                 }

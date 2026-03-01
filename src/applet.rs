@@ -157,32 +157,31 @@ impl Application for AppletModel {
             Message::TogglePopup => {
                 if let Some(p) = self.popup.take() {
                     return destroy_popup(p);
-                } else {
-                    // Reset state on open
-                    self.search_query.clear();
-                    self.selected_index = None;
-                    self.page = Page::All;
-                    self.config = load_config();
-                    if let Ok(mut kb) = APPLET_KEYBINDINGS.write() {
-                        *kb = Some(self.config.clone());
-                    }
-
-                    let id = window::Id::unique();
-                    self.popup = Some(id);
-                    let popup_settings = self.core.applet.get_popup_settings(
-                        self.core.main_window_id().unwrap(),
-                        id,
-                        None,
-                        None,
-                        None,
-                    );
-                    return Task::batch(vec![
-                        get_popup(popup_settings),
-                        Task::perform(fetch_entries(), |r| {
-                            cosmic::Action::App(Message::EntriesLoaded(r))
-                        }),
-                    ]);
                 }
+                // Reset state on open
+                self.search_query.clear();
+                self.selected_index = None;
+                self.page = Page::All;
+                self.config = load_config();
+                if let Ok(mut kb) = APPLET_KEYBINDINGS.write() {
+                    *kb = Some(self.config.clone());
+                }
+
+                let id = window::Id::unique();
+                self.popup = Some(id);
+                let popup_settings = self.core.applet.get_popup_settings(
+                    self.core.main_window_id().unwrap(),
+                    id,
+                    None,
+                    None,
+                    None,
+                );
+                return Task::batch(vec![
+                    get_popup(popup_settings),
+                    Task::perform(fetch_entries(), |r| {
+                        cosmic::Action::App(Message::EntriesLoaded(r))
+                    }),
+                ]);
             }
             Message::PopupClosed(id) => {
                 if self.popup == Some(id) {
@@ -340,8 +339,7 @@ impl Application for AppletModel {
                     let pinned = self
                         .selected_index
                         .and_then(|idx| filtered.get(idx))
-                        .map(|e| e.pinned)
-                        .unwrap_or(false);
+                        .is_some_and(|e| e.pinned);
                     return Task::perform(
                         call_daemon_action(if pinned {
                             DaemonAction::Unpin(id)
@@ -630,17 +628,17 @@ impl Application for AppletModel {
 
                 // Configurable keybindings
                 if status == event::Status::Ignored {
-                    if config.toggle_pin.matches(key, &modifiers) {
+                    if config.toggle_pin.matches(key, modifiers) {
                         return Some(Message::TogglePinSelected);
                     }
-                    if config.delete_entry.matches(key, &modifiers) {
+                    if config.delete_entry.matches(key, modifiers) {
                         return Some(Message::DeleteSelected);
                     }
                 }
-                if config.tab_all.matches(key, &modifiers) {
+                if config.tab_all.matches(key, modifiers) {
                     return Some(Message::SetPage(Page::All));
                 }
-                if config.tab_pinned.matches(key, &modifiers) {
+                if config.tab_pinned.matches(key, modifiers) {
                     return Some(Message::SetPage(Page::Pinned));
                 }
             }

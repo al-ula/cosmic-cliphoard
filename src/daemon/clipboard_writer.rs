@@ -131,7 +131,7 @@ impl Dispatch<ZwlrDataControlSourceV1, ()> for WriterState {
 /// accepted the selection. The function then continues to block, serving `Send`
 /// events until the source is `Cancelled` (replaced by another copy).
 pub fn write_to_clipboard(
-    mime_type: String,
+    mime_type: &str,
     data: Vec<u8>,
     ready_tx: tokio::sync::oneshot::Sender<Result<(), ClipboardWriteError>>,
 ) -> Result<(), ClipboardWriteError> {
@@ -176,7 +176,7 @@ pub fn write_to_clipboard(
         let seat = seats.into_iter().next().unwrap();
         let device = manager.get_data_device(&seat, &qh, ());
         let source = manager.create_data_source(&qh, ());
-        source.offer(mime_type.clone());
+        source.offer(mime_type.to_string());
         // Offer common aliases so that consumers requesting a slightly
         // different mime string can still match our source.
         if mime_type == "text/plain" {
@@ -210,7 +210,7 @@ pub fn write_to_clipboard(
             // Block serving Send events until Cancelled
             while !state.done {
                 if let Err(e) = queue.blocking_dispatch(&mut state) {
-                    tracing::error!("Clipboard dispatch error: {}", e);
+                    tracing::error!("Clipboard dispatch error: {e}");
                     break;
                 }
             }

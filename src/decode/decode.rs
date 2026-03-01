@@ -80,33 +80,24 @@ fn output_json(mime: &MimeType, content: &DecodedContent) -> io::Result<()> {
 
     match content {
         DecodedContent::Text(text) => {
-            write!(
-                out,
-                "{{\"mime\":\"{}\",\"type\":\"text\",\"content\":",
-                mime
-            )?;
+            write!(out, "{{\"mime\":\"{mime}\",\"type\":\"text\",\"content\":")?;
             serde_json::to_writer(&mut out, text)?;
             writeln!(out, "}}")?;
         }
         DecodedContent::Html(html) => {
-            write!(
-                out,
-                "{{\"mime\":\"{}\",\"type\":\"html\",\"content\":",
-                mime
-            )?;
+            write!(out, "{{\"mime\":\"{mime}\",\"type\":\"html\",\"content\":")?;
             serde_json::to_writer(&mut out, html)?;
             writeln!(out, "}}")?;
         }
         DecodedContent::UriList(uris) => {
-            write!(out, "{{\"mime\":\"{}\",\"type\":\"uri\",\"uris\":", mime)?;
+            write!(out, "{{\"mime\":\"{mime}\",\"type\":\"uri\",\"uris\":")?;
             serde_json::to_writer(&mut out, uris)?;
             writeln!(out, "}}")?;
         }
         DecodedContent::Binary { mime, data } => {
             writeln!(
                 out,
-                "{{\"mime\":\"{}\",\"type\":\"binary\",\"size\":{}}}",
-                mime,
+                "{{\"mime\":\"{mime}\",\"type\":\"binary\",\"size\":{}}}",
                 data.len()
             )?;
         }
@@ -121,11 +112,11 @@ fn output_raw(content: &DecodedContent) -> io::Result<()> {
 
     match content {
         DecodedContent::Text(text) | DecodedContent::Html(text) => {
-            write!(out, "{}", text)?;
+            write!(out, "{text}")?;
         }
         DecodedContent::UriList(uris) => {
             for uri in uris {
-                writeln!(out, "{}", uri)?;
+                writeln!(out, "{uri}")?;
             }
         }
         DecodedContent::Binary { data, .. } => {
