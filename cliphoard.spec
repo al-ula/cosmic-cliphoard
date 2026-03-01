@@ -46,6 +46,7 @@ install -Dm0644 resources/com.github.al_ula.Cliphoard.Applet.desktop %{buildroot
 install -Dm0644 resources/com.github.al_ula.Cliphoard.metainfo.xml %{buildroot}%{_datadir}/appdata/com.github.al_ula.Cliphoard.metainfo.xml
 install -Dm0644 resources/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard.svg
 install -Dm0644 resources/systemd/cliphoard-daemon.service %{buildroot}%{_prefix}/lib/systemd/user/cliphoard-daemon.service
+install -Dm0644 resources/systemd/cliphoard-tray.service %{buildroot}%{_prefix}/lib/systemd/user/cliphoard-tray.service
 
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
@@ -53,12 +54,15 @@ appstream-util validate-relax --nonet %{buildroot}%{_datadir}/appdata/*.metainfo
 
 %post
 %systemd_user_post cliphoard-daemon.service
+%systemd_user_post cliphoard-tray.service
 
 %preun
 %systemd_user_preun cliphoard-daemon.service
+%systemd_user_preun cliphoard-tray.service
 
 %postun
 %systemd_user_postun_with_restart cliphoard-daemon.service
+%systemd_user_postun_with_restart cliphoard-tray.service
 
 %files
 %license LICENSE
@@ -69,6 +73,7 @@ appstream-util validate-relax --nonet %{buildroot}%{_datadir}/appdata/*.metainfo
 %{_datadir}/appdata/com.github.al_ula.Cliphoard.metainfo.xml
 %{_datadir}/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard.svg
 %{_prefix}/lib/systemd/user/cliphoard-daemon.service
+%{_prefix}/lib/systemd/user/cliphoard-tray.service
 
 %changelog
 * Fri Feb 27 2026 Isa Al-Ula <isaalula@proton.me> - 0.1.0-1
