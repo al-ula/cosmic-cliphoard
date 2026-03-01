@@ -48,7 +48,7 @@ pub fn run_decode(mime: Option<String>, json: bool) {
     let mime = mime.map(|s| crate::schema::MimeType::parse(&s));
 
     if let Err(e) = crate::decode::decode_stdin(mime, json) {
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
         std::process::exit(1);
     }
 }
@@ -65,10 +65,10 @@ pub async fn run(cmd: Command) {
         .init();
 
     if let Err(e) = run_command(cmd).await {
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
         let mut source = std::error::Error::source(&*e);
         while let Some(s) = source {
-            eprintln!("  caused by: {}", s);
+            eprintln!("  caused by: {s}");
             source = std::error::Error::source(s);
         }
         std::process::exit(1);
@@ -149,7 +149,7 @@ async fn paste_entry(id: u64) -> Result<(), CommandError> {
 
     if success {
         info!(id, "Entry pasted to clipboard");
-        println!("Entry {} pasted to clipboard.", id);
+        println!("Entry {id} pasted to clipboard.");
     } else {
         return Err(CommandError::NotFound(id));
     }
@@ -165,7 +165,7 @@ async fn delete_entry(id: u64) -> Result<(), CommandError> {
 
     if removed {
         info!(id, "Entry deleted");
-        println!("Entry {} deleted.", id);
+        println!("Entry {id} deleted.");
     } else {
         return Err(CommandError::NotFound(id));
     }
@@ -181,7 +181,7 @@ async fn pin_entry(id: u64) -> Result<(), CommandError> {
 
     if pinned {
         info!(id, "Entry pinned");
-        println!("Entry {} pinned.", id);
+        println!("Entry {id} pinned.");
     } else {
         return Err(CommandError::NotFound(id));
     }
@@ -197,7 +197,7 @@ async fn unpin_entry(id: u64) -> Result<(), CommandError> {
 
     if unpinned {
         info!(id, "Entry unpinned");
-        println!("Entry {} unpinned.", id);
+        println!("Entry {id} unpinned.");
     } else {
         return Err(CommandError::NotFound(id));
     }
@@ -208,13 +208,14 @@ async fn unpin_entry(id: u64) -> Result<(), CommandError> {
 pub fn generate_service(path: Option<std::path::PathBuf>) {
     let dir = match path {
         Some(d) => d,
-        None => match dirs::config_dir() {
-            Some(d) => d.join("systemd/user"),
-            None => {
+        None => {
+            if let Some(d) = dirs::config_dir() {
+                d.join("systemd/user")
+            } else {
                 eprintln!("Error: could not determine config directory");
                 std::process::exit(1);
             }
-        },
+        }
     };
 
     if let Err(e) = std::fs::create_dir_all(&dir) {

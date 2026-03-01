@@ -559,24 +559,24 @@ impl OverlayState {
             }
             Message::SettingsKeybindingChanged(name, value) => match name.as_str() {
                 "toggle_pin" => {
-                    self.settings_keybindings.toggle_pin = value.clone();
                     self.keybinding_errors.toggle_pin = KeyBinding::from_str(&value).err();
+                    self.settings_keybindings.toggle_pin = value;
                 }
                 "toggle_preview" => {
-                    self.settings_keybindings.toggle_preview = value.clone();
                     self.keybinding_errors.toggle_preview = KeyBinding::from_str(&value).err();
+                    self.settings_keybindings.toggle_preview = value;
                 }
                 "delete_entry" => {
-                    self.settings_keybindings.delete_entry = value.clone();
                     self.keybinding_errors.delete_entry = KeyBinding::from_str(&value).err();
+                    self.settings_keybindings.delete_entry = value;
                 }
                 "tab_all" => {
-                    self.settings_keybindings.tab_all = value.clone();
                     self.keybinding_errors.tab_all = KeyBinding::from_str(&value).err();
+                    self.settings_keybindings.tab_all = value;
                 }
                 "tab_pinned" => {
-                    self.settings_keybindings.tab_pinned = value.clone();
                     self.keybinding_errors.tab_pinned = KeyBinding::from_str(&value).err();
+                    self.settings_keybindings.tab_pinned = value;
                 }
                 _ => {}
             },
@@ -594,29 +594,29 @@ impl OverlayState {
                 }
                 match which {
                     CapturingKeybinding::TogglePin => {
-                        self.settings_keybindings.toggle_pin = keybinding_str.clone();
                         self.keybinding_errors.toggle_pin =
                             KeyBinding::from_str(&keybinding_str).err();
+                        self.settings_keybindings.toggle_pin = keybinding_str;
                     }
                     CapturingKeybinding::TogglePreview => {
-                        self.settings_keybindings.toggle_preview = keybinding_str.clone();
                         self.keybinding_errors.toggle_preview =
                             KeyBinding::from_str(&keybinding_str).err();
+                        self.settings_keybindings.toggle_preview = keybinding_str;
                     }
                     CapturingKeybinding::DeleteEntry => {
-                        self.settings_keybindings.delete_entry = keybinding_str.clone();
                         self.keybinding_errors.delete_entry =
                             KeyBinding::from_str(&keybinding_str).err();
+                        self.settings_keybindings.delete_entry = keybinding_str;
                     }
                     CapturingKeybinding::TabAll => {
-                        self.settings_keybindings.tab_all = keybinding_str.clone();
                         self.keybinding_errors.tab_all =
                             KeyBinding::from_str(&keybinding_str).err();
+                        self.settings_keybindings.tab_all = keybinding_str;
                     }
                     CapturingKeybinding::TabPinned => {
-                        self.settings_keybindings.tab_pinned = keybinding_str.clone();
                         self.keybinding_errors.tab_pinned =
                             KeyBinding::from_str(&keybinding_str).err();
+                        self.settings_keybindings.tab_pinned = keybinding_str;
                     }
                     CapturingKeybinding::None => {}
                 }
@@ -997,8 +997,7 @@ impl OverlayState {
 
         let mut footer_row = widget::row::with_capacity(4);
         if self.view == View::Main {
-            footer_row =
-                footer_row.push(widget::text::caption(format!("{} entries", entries_count)));
+            footer_row = footer_row.push(widget::text::caption(format!("{entries_count} entries")));
         }
         footer_row = footer_row
             .push(widget::horizontal_space())
@@ -1055,10 +1054,10 @@ impl OverlayState {
                                     .align_y(cosmic::iced::alignment::Vertical::Center)
                                     .into()
                             } else {
+                                let mime = &entry.mime;
+                                let len = entry.data.len();
                                 widget::container(widget::text(format!(
-                                    "[binary: {}, {} bytes]",
-                                    entry.mime,
-                                    entry.data.len()
+                                    "[binary: {mime}, {len} bytes]"
                                 )))
                                 .width(Length::Fill)
                                 .height(Length::Fill)
@@ -1300,9 +1299,9 @@ impl OverlayState {
         let panel = widget::container(main_col)
             .padding(space_s)
             .width(Length::Fixed(if self.show_preview {
-                LIST_PANEL_WIDTH + PREVIEW_PANEL_WIDTH + space_s as f32 * 2.0
+                LIST_PANEL_WIDTH + PREVIEW_PANEL_WIDTH + f32::from(space_s) * 2.0
             } else {
-                LIST_PANEL_WIDTH + space_s as f32 * 2.0
+                LIST_PANEL_WIDTH + f32::from(space_s) * 2.0
             }))
             .height(Length::Fixed(CARD_HEIGHT))
             .class(cosmic::theme::Container::Custom(Box::new(
@@ -1406,20 +1405,20 @@ impl OverlayState {
                     .unwrap_or_default();
 
                 if status == event::Status::Ignored {
-                    if config.toggle_pin.matches(key, &modifiers) {
+                    if config.toggle_pin.matches(key, modifiers) {
                         return Some(Message::TogglePinSelected);
                     }
-                    if config.toggle_preview.matches(key, &modifiers) {
+                    if config.toggle_preview.matches(key, modifiers) {
                         return Some(Message::TogglePreview);
                     }
-                    if config.delete_entry.matches(key, &modifiers) {
+                    if config.delete_entry.matches(key, modifiers) {
                         return Some(Message::DeleteSelected);
                     }
                 }
-                if config.tab_all.matches(key, &modifiers) {
+                if config.tab_all.matches(key, modifiers) {
                     return Some(Message::SetPage(Page::All));
                 }
-                if config.tab_pinned.matches(key, &modifiers) {
+                if config.tab_pinned.matches(key, modifiers) {
                     return Some(Message::SetPage(Page::Pinned));
                 }
             }

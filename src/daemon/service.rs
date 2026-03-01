@@ -45,7 +45,7 @@ impl ClipboardManagerService {
     async fn persist(&self) {
         let hist = self.history.read().await;
         if let Err(e) = self.storage.save(&hist) {
-            error!("Failed to save history: {}", e);
+            error!("Failed to save history: {e}");
         }
     }
 }
@@ -67,8 +67,7 @@ impl ClipboardManagerService {
                 OxiCodeCodec::serialize(entry).map_err(|e| zbus::fdo::Error::Failed(e.to_string()))
             }
             None => Err(zbus::fdo::Error::UnknownObject(format!(
-                "Entry {} not found",
-                id
+                "Entry {id} not found"
             ))),
         }
     }
@@ -154,10 +153,10 @@ impl ClipboardManagerService {
         let (tx, rx) = tokio::sync::oneshot::channel();
 
         tokio::task::spawn_blocking(move || {
-            match super::clipboard_writer::write_to_clipboard(mime, payload, tx) {
+            match super::clipboard_writer::write_to_clipboard(&mime, payload, tx) {
                 Ok(()) => {}
                 Err(e) => {
-                    error!("Clipboard write failed: {}", e);
+                    error!("Clipboard write failed: {e}");
                 }
             }
         });
@@ -168,7 +167,7 @@ impl ClipboardManagerService {
                 Ok(true)
             }
             Ok(Err(e)) => {
-                error!("Clipboard write setup failed: {}", e);
+                error!("Clipboard write setup failed: {e}");
                 Ok(false)
             }
             Err(_) => {
@@ -205,7 +204,7 @@ impl ClipboardManagerService {
         };
 
         if let Err(e) = self.storage.save_config(&config) {
-            error!("Failed to save config: {}", e);
+            error!("Failed to save config: {e}");
             return Err(zbus::fdo::Error::Failed(e.to_string()));
         }
 
