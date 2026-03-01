@@ -36,7 +36,7 @@ with D-Bus integration.
 # Binary-only build from git checkout; no tarball to unpack
 
 %build
-cargo build --release --locked
+cargo build --release --locked --target-dir target
 
 %install
 install -Dm0755 target/release/cliphoard %{buildroot}%{_bindir}/cliphoard
