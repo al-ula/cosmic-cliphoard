@@ -482,7 +482,12 @@ impl Application for AppletModel {
 
         // Entry list
         let list_content: Element<_> = if let Some(ref err) = self.error {
-            widget::text::body(err.as_str()).into()
+            widget::container(widget::text::body(err.as_str()))
+                .width(Length::Fill)
+                .height(Length::Fixed(LIST_HEIGHT))
+                .align_x(cosmic::iced::alignment::Horizontal::Center)
+                .align_y(cosmic::iced::alignment::Vertical::Center)
+                .into()
         } else if filtered.is_empty() {
             let msg = if self.entries.is_empty() {
                 "Clipboard is empty"
@@ -491,7 +496,7 @@ impl Application for AppletModel {
             };
             widget::container(widget::text::body(msg))
                 .width(Length::Fill)
-                .height(Length::Fill)
+                .height(Length::Fixed(LIST_HEIGHT))
                 .align_x(cosmic::iced::alignment::Horizontal::Center)
                 .align_y(cosmic::iced::alignment::Vertical::Center)
                 .into()

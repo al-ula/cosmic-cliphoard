@@ -101,6 +101,47 @@ just release
 
 Produces `cliphoard-<version>-<target>.tar.gz` in the working directory.
 
+## Building packages locally
+
+### RPM (Fedora/RHEL)
+
+Requires `rpm-build` and the build dependencies listed in `cliphoard.spec`.
+
+```sh
+sudo dnf install rpm-build gcc git \
+  libxkbcommon-devel wayland-devel libX11-devel dbus-devel \
+  fontconfig-devel freetype-devel vulkan-loader-devel mesa-libGL-devel \
+  desktop-file-utils libappstream-glib systemd-rpm-macros
+```
+
+Build the RPM from the project root:
+
+```sh
+rpmbuild -bb cliphoard.spec \
+  --define "_sourcedir $(pwd)" \
+  --define "cargo_version $(grep -m1 '^version' Cargo.toml | sed 's/.*\"\(.*\)\".*/\1/')"
+```
+
+The built RPM will be in `~/rpmbuild/RPMS/<arch>/`.
+
+### DEB (Debian/Ubuntu)
+
+Requires `debhelper`, `dpkg-dev`, and the build dependencies listed in `debian/control`.
+
+```sh
+sudo apt install debhelper dpkg-dev gcc git pkg-config \
+  libxkbcommon-dev libwayland-dev libx11-dev libvulkan-dev \
+  libdbus-1-dev libfontconfig1-dev libfreetype6-dev libgl1-mesa-dev
+```
+
+Build the deb from the project root:
+
+```sh
+dpkg-buildpackage -us -uc -b
+```
+
+The built `.deb` will be in the parent directory (`../`).
+
 ## Clean
 
 ```sh
