@@ -33,7 +33,8 @@ Features a panel applet, system tray icon, and background daemon
 with D-Bus integration.
 
 %prep
-# No tarball to unpack; building directly from git checkout
+# Copy source tree from checkout into rpmbuild's per-package build directory
+find %{_sourcedir} -mindepth 1 -maxdepth 1 ! -name target ! -name '*.spec' ! -name '*.rpm' ! -name '*.tar.gz' -exec cp -a {} . \;
 
 %build
 cargo build --release --locked --target-dir target
