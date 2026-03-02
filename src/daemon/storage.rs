@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use crate::schema::{ClipboardConfig, ClipboardHistory, Codec, OxiCodeCodec, OxiCodeError};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
 
 #[derive(Debug, thiserror::Error)]
@@ -31,12 +31,7 @@ impl Storage {
 
         std::fs::create_dir_all(&cliphoard_dir)?;
 
-        let old_json_path = cliphoard_dir.join("history.json");
-        if old_json_path.exists() {
-            warn!("Found old history.json; binary format now used — starting with empty history");
-        }
-
-        let path = cliphoard_dir.join("history.bin");
+        let path = cliphoard_dir.join("history.json");
 
         let config_dir = dirs::config_dir().ok_or(StorageError::DataDir)?;
         let config_cliphoard_dir = config_dir.join("cliphoard");
@@ -49,6 +44,26 @@ impl Storage {
     }
 
     pub fn load(&self) -> Result<ClipboardHistory, StorageError> {
+        // Migrate from old binary format if history.bin exists
+        let bin_path = self.path.with_file_name("history.bin");
+        if bin_path.exists() && !self.path.exists() {
+            info!("Found history.bin, migrating to JSON format");
+            if let Ok(history) = Self::load_binary(&bin_path)
+                && let Ok(()) = Self::save_json(&self.path, &history)
+            {
+                let bak_path = bin_path.with_extension("bin.bak");
+                if let Err(e) = std::fs::rename(&bin_path, &bak_path) {
+                    warn!(error = %e, "Failed to rename history.bin to backup");
+                } else {
+                    info!(
+                        "Migration complete: history.bin → history.json (backup at history.bin.bak)"
+                    );
+                }
+                return Ok(history);
+            }
+            warn!("Migration failed, starting with empty history");
+        }
+
         if !self.path.exists() {
             info!("No existing history file, starting fresh");
             return Ok(ClipboardHistory::default());
@@ -62,7 +77,7 @@ impl Storage {
             return Ok(ClipboardHistory::default());
         }
 
-        match OxiCodeCodec::deserialize::<ClipboardHistory>(&bytes) {
+        match serde_json::from_slice::<ClipboardHistory>(&bytes) {
             Ok(history) => {
                 info!(len = history.len(), "Loaded history from disk");
                 Ok(history)
@@ -74,13 +89,31 @@ impl Storage {
         }
     }
 
+    /// Load history from an oxicode binary file (used for migration).
+    fn load_binary(path: &Path) -> Result<ClipboardHistory, StorageError> {
+        let bytes = std::fs::read(path)?;
+        if bytes.is_empty() {
+            return Ok(ClipboardHistory::default());
+        }
+        Ok(OxiCodeCodec::deserialize::<ClipboardHistory>(&bytes)?)
+    }
+
+    /// Save history as pretty-printed JSON.
+    fn save_json(path: &Path, history: &ClipboardHistory) -> Result<(), StorageError> {
+        let bytes = serde_json::to_vec_pretty(history)?;
+        let temp_path = path.with_extension("json.tmp");
+        std::fs::write(&temp_path, &bytes)?;
+        std::fs::rename(&temp_path, path)?;
+        Ok(())
+    }
+
     pub fn save(&self, history: &ClipboardHistory) -> Result<(), StorageError> {
         debug!(path = %self.path.display(), len = history.len(), "Saving history to disk");
 
-        let bytes = OxiCodeCodec::serialize(history)?;
+        let bytes = serde_json::to_vec_pretty(history)?;
 
         // Write to temp file first, then rename for atomicity
-        let temp_path = self.path.with_extension("bin.tmp");
+        let temp_path = self.path.with_extension("json.tmp");
         std::fs::write(&temp_path, &bytes)?;
         std::fs::rename(&temp_path, &self.path)?;
 
@@ -133,16 +166,20 @@ impl Default for Storage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::MimeType;
+    use crate::schema::{MimeType, SensitiveInfo};
     use tempfile::tempdir;
 
     #[test]
     fn save_and_load() {
         let dir = tempdir().unwrap();
-        let path = dir.path().join("history.bin");
+        let path = dir.path().join("history.json");
 
         let mut history = ClipboardHistory::new(10, 10, 1024 * 1024);
-        history.push(MimeType::TextPlain, b"test data".to_vec());
+        history.push(
+            MimeType::TextPlain,
+            b"test data".to_vec(),
+            SensitiveInfo::normal(),
+        );
 
         let storage = Storage {
             path: path.clone(),
@@ -154,5 +191,52 @@ mod tests {
 
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded.iter().next().unwrap().as_text(), Some("test data"));
+    }
+
+    #[test]
+    fn migrate_binary_to_json() {
+        let dir = tempdir().unwrap();
+        let bin_path = dir.path().join("history.bin");
+        let json_path = dir.path().join("history.json");
+
+        // Write history in old binary format
+        let mut history = ClipboardHistory::new(10, 10, 1024 * 1024);
+        history.push(
+            MimeType::TextPlain,
+            b"migrated data".to_vec(),
+            SensitiveInfo::normal(),
+        );
+        let bytes = OxiCodeCodec::serialize(&history).unwrap();
+        std::fs::write(&bin_path, &bytes).unwrap();
+
+        // Storage points at history.json — load should migrate
+        let storage = Storage {
+            path: json_path.clone(),
+            config_path: dir.path().join("config.json"),
+        };
+
+        let loaded = storage.load().unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(
+            loaded.iter().next().unwrap().as_text(),
+            Some("migrated data")
+        );
+
+        // history.json should now exist
+        assert!(json_path.exists(), "history.json should be created");
+        // history.bin should be renamed to backup
+        assert!(
+            !bin_path.exists(),
+            "history.bin should be removed after migration"
+        );
+        assert!(
+            dir.path().join("history.bin.bak").exists(),
+            "history.bin.bak should exist"
+        );
+
+        // Verify the JSON file is valid JSON
+        let json_bytes = std::fs::read(&json_path).unwrap();
+        serde_json::from_slice::<ClipboardHistory>(&json_bytes)
+            .expect("history.json should be valid JSON");
     }
 }

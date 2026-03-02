@@ -3,6 +3,7 @@
 //! Clipboard entry types.
 
 use super::MimeType;
+use super::sensitive::SensitiveInfo;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -33,16 +34,19 @@ pub struct ClipboardEntry {
     pub data: Vec<u8>,
     pub timestamp_ms: i64,
     pub pinned: bool,
+    #[serde(default)]
+    pub sensitive: SensitiveInfo,
 }
 
 impl ClipboardEntry {
-    pub fn new(id: u64, mime: MimeType, data: Vec<u8>) -> Self {
+    pub fn new(id: u64, mime: MimeType, data: Vec<u8>, sensitive: SensitiveInfo) -> Self {
         Self {
             id: EntryId(id),
             mime,
             data,
             timestamp_ms: Utc::now().timestamp_millis(),
             pinned: false,
+            sensitive,
         }
     }
 
@@ -206,16 +210,30 @@ fn human_size(bytes: usize) -> String {
 mod tests {
     use super::*;
 
+    fn normal_sensitive() -> SensitiveInfo {
+        SensitiveInfo::normal()
+    }
+
     #[test]
     fn text_entry_preview() {
-        let entry = ClipboardEntry::new(1, MimeType::TextPlain, b"hello world".to_vec());
+        let entry = ClipboardEntry::new(
+            1,
+            MimeType::TextPlain,
+            b"hello world".to_vec(),
+            normal_sensitive(),
+        );
         assert_eq!(entry.preview(100), "hello world");
         assert_eq!(entry.as_text(), Some("hello world"));
     }
 
     #[test]
     fn image_entry_preview() {
-        let entry = ClipboardEntry::new(2, MimeType::ImagePng, vec![0x89, 0x50, 0x4E, 0x47]);
+        let entry = ClipboardEntry::new(
+            2,
+            MimeType::ImagePng,
+            vec![0x89, 0x50, 0x4E, 0x47],
+            normal_sensitive(),
+        );
         assert_eq!(entry.preview(100), "[Image: image/png]");
         assert!(entry.as_text().is_none());
     }
@@ -223,43 +241,52 @@ mod tests {
     #[test]
     fn long_text_truncation() {
         let long = "a".repeat(200);
-        let entry = ClipboardEntry::new(3, MimeType::TextPlain, long.into_bytes());
+        let entry = ClipboardEntry::new(
+            3,
+            MimeType::TextPlain,
+            long.into_bytes(),
+            normal_sensitive(),
+        );
         let preview = entry.preview(50);
-        assert!(preview.len() <= 54); // 50 + "…" (3 bytes UTF-8)
+        assert!(preview.len() <= 54);
         assert!(preview.ends_with("…"));
     }
 
     #[test]
     fn uri_entry_preview_shows_filenames() {
         let uri = b"file:///home/user/doc.pdf\nfile:///tmp/image.png";
-        let entry = ClipboardEntry::new(5, MimeType::TextUri, uri.to_vec());
+        let entry = ClipboardEntry::new(5, MimeType::TextUri, uri.to_vec(), normal_sensitive());
         assert_eq!(entry.preview(100), "doc.pdf, image.png");
     }
 
     #[test]
     fn uri_entry_preview_truncates() {
         let uri = b"file:///a/very_long_filename_one.txt\nfile:///b/very_long_filename_two.txt";
-        let entry = ClipboardEntry::new(6, MimeType::TextUri, uri.to_vec());
+        let entry = ClipboardEntry::new(6, MimeType::TextUri, uri.to_vec(), normal_sensitive());
         let preview = entry.preview(30);
         assert!(preview.ends_with('…'));
-        assert!(preview.len() <= 34); // 30 chars + "…" (3 bytes)
+        assert!(preview.len() <= 34);
     }
 
     #[test]
     fn search_text_for_text_entry() {
-        let entry = ClipboardEntry::new(1, MimeType::TextPlain, b"hello world".to_vec());
+        let entry = ClipboardEntry::new(
+            1,
+            MimeType::TextPlain,
+            b"hello world".to_vec(),
+            normal_sensitive(),
+        );
         assert_eq!(entry.search_text(), "hello world");
     }
 
     #[test]
     fn search_text_for_image_includes_mime_and_dimensions() {
-        // Valid PNG header with IHDR chunk: 100x200 pixels
         let mut png = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-        png.extend_from_slice(&[0x00, 0x00, 0x00, 0x0D]); // IHDR length
-        png.extend_from_slice(b"IHDR");                     // chunk type
-        png.extend_from_slice(&100u32.to_be_bytes());       // width
-        png.extend_from_slice(&200u32.to_be_bytes());       // height
-        let entry = ClipboardEntry::new(2, MimeType::ImagePng, png);
+        png.extend_from_slice(&[0x00, 0x00, 0x00, 0x0D]);
+        png.extend_from_slice(b"IHDR");
+        png.extend_from_slice(&100u32.to_be_bytes());
+        png.extend_from_slice(&200u32.to_be_bytes());
+        let entry = ClipboardEntry::new(2, MimeType::ImagePng, png, normal_sensitive());
         let st = entry.search_text();
         assert!(st.contains("image/png"), "should contain mime type");
         assert!(st.contains("image"), "should contain category keyword");
@@ -272,6 +299,7 @@ mod tests {
             3,
             MimeType::Other("application/pdf".into()),
             vec![0; 2048],
+            normal_sensitive(),
         );
         let st = entry.search_text();
         assert!(st.contains("application/pdf"));
@@ -288,7 +316,7 @@ mod tests {
     #[test]
     fn search_text_uri_includes_filenames() {
         let uri = b"file:///home/user/Documents/report.pdf\nhttps://example.com/photo.png";
-        let entry = ClipboardEntry::new(4, MimeType::TextUri, uri.to_vec());
+        let entry = ClipboardEntry::new(4, MimeType::TextUri, uri.to_vec(), normal_sensitive());
         let st = entry.search_text();
         assert!(st.contains("report.pdf"), "should contain local filename");
         assert!(st.contains("photo.png"), "should contain remote filename");

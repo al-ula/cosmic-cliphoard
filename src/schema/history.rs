@@ -3,10 +3,11 @@
 use crate::schema::MimeType;
 
 use super::entry::{ClipboardEntry, EntryId};
+use super::sensitive::SensitiveInfo;
 use super::{DEFAULT_MAX_ENTRY_SIZE, DEFAULT_MAX_PINNED, DEFAULT_MAX_UNPINNED};
 use serde::{Deserialize, Serialize};
-use skim::fuzzy_matcher::skim::SkimMatcherV2;
 use skim::fuzzy_matcher::FuzzyMatcher;
+use skim::fuzzy_matcher::skim::SkimMatcherV2;
 use std::collections::VecDeque;
 
 pub fn fuzzy_search<'a>(
@@ -79,7 +80,12 @@ impl ClipboardHistory {
         }
     }
 
-    pub fn push(&mut self, mime: MimeType, data: Vec<u8>) -> Option<EntryId> {
+    pub fn push(
+        &mut self,
+        mime: MimeType,
+        data: Vec<u8>,
+        sensitive: SensitiveInfo,
+    ) -> Option<EntryId> {
         if data.len() > self.max_entry_size {
             return None;
         }
@@ -87,7 +93,7 @@ impl ClipboardHistory {
         let id = self.next_id;
         self.next_id += 1;
 
-        let entry = ClipboardEntry::new(id, mime, data);
+        let entry = ClipboardEntry::new(id, mime, data, sensitive);
         self.entries.push_front(entry);
         self.evict();
         Some(EntryId(id))
@@ -189,15 +195,19 @@ mod tests {
         ClipboardHistory::new(max_unpinned, max_pinned, BIG)
     }
 
+    fn normal() -> SensitiveInfo {
+        SensitiveInfo::normal()
+    }
+
     #[test]
     fn push_and_evict() {
         let mut history = test_history(3, 10);
-        history.push(MimeType::TextPlain, b"first".to_vec());
-        history.push(MimeType::TextPlain, b"second".to_vec());
-        history.push(MimeType::TextPlain, b"third".to_vec());
+        history.push(MimeType::TextPlain, b"first".to_vec(), normal());
+        history.push(MimeType::TextPlain, b"second".to_vec(), normal());
+        history.push(MimeType::TextPlain, b"third".to_vec(), normal());
         assert_eq!(history.len(), 3);
 
-        history.push(MimeType::TextPlain, b"fourth".to_vec());
+        history.push(MimeType::TextPlain, b"fourth".to_vec(), normal());
         assert_eq!(history.len(), 3);
 
         assert!(history.get(EntryId(1)).is_none());
@@ -209,11 +219,11 @@ mod tests {
     fn pinned_entries_survive_eviction() {
         let mut history = test_history(2, 10);
         let id1 = history
-            .push(MimeType::TextPlain, b"pinned".to_vec())
+            .push(MimeType::TextPlain, b"pinned".to_vec(), normal())
             .unwrap();
         history.pin(id1);
-        history.push(MimeType::TextPlain, b"second".to_vec());
-        history.push(MimeType::TextPlain, b"third".to_vec());
+        history.push(MimeType::TextPlain, b"second".to_vec(), normal());
+        history.push(MimeType::TextPlain, b"third".to_vec(), normal());
 
         assert!(history.get(id1).is_some());
         assert_eq!(history.unpinned_count(), 2);
@@ -222,9 +232,11 @@ mod tests {
     #[test]
     fn clear_keeps_pinned() {
         let mut history = test_history(10, 10);
-        let id1 = history.push(MimeType::TextPlain, b"keep".to_vec()).unwrap();
+        let id1 = history
+            .push(MimeType::TextPlain, b"keep".to_vec(), normal())
+            .unwrap();
         history.pin(id1);
-        history.push(MimeType::TextPlain, b"gone".to_vec());
+        history.push(MimeType::TextPlain, b"gone".to_vec(), normal());
         history.clear();
         assert_eq!(history.len(), 1);
         assert!(history.get(id1).is_some());
@@ -233,8 +245,8 @@ mod tests {
     #[test]
     fn search_case_insensitive() {
         let mut history = test_history(10, 10);
-        history.push(MimeType::TextPlain, b"Hello World".to_vec());
-        history.push(MimeType::TextPlain, b"goodbye".to_vec());
+        history.push(MimeType::TextPlain, b"Hello World".to_vec(), normal());
+        history.push(MimeType::TextPlain, b"goodbye".to_vec(), normal());
         let results = history.search("hello");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].as_text(), Some("Hello World"));
@@ -243,8 +255,8 @@ mod tests {
     #[test]
     fn search_fuzzy_matching() {
         let mut history = test_history(10, 10);
-        history.push(MimeType::TextPlain, b"clipboard_manager".to_vec());
-        history.push(MimeType::TextPlain, b"something else".to_vec());
+        history.push(MimeType::TextPlain, b"clipboard_manager".to_vec(), normal());
+        history.push(MimeType::TextPlain, b"something else".to_vec(), normal());
         let results = history.search("clmgr");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].as_text(), Some("clipboard_manager"));
@@ -253,19 +265,22 @@ mod tests {
     #[test]
     fn search_score_ordering() {
         let mut history = test_history(10, 10);
-        history.push(MimeType::TextPlain, b"xxxxxxxhelloxxxxxxx".to_vec());
-        history.push(MimeType::TextPlain, b"hello".to_vec());
+        history.push(
+            MimeType::TextPlain,
+            b"xxxxxxxhelloxxxxxxx".to_vec(),
+            normal(),
+        );
+        history.push(MimeType::TextPlain, b"hello".to_vec(), normal());
         let results = history.search("hello");
         assert_eq!(results.len(), 2);
-        // Exact/tighter match should rank first
         assert_eq!(results[0].as_text(), Some("hello"));
     }
 
     #[test]
     fn search_empty_query_returns_all() {
         let mut history = test_history(10, 10);
-        history.push(MimeType::TextPlain, b"alpha".to_vec());
-        history.push(MimeType::TextPlain, b"beta".to_vec());
+        history.push(MimeType::TextPlain, b"alpha".to_vec(), normal());
+        history.push(MimeType::TextPlain, b"beta".to_vec(), normal());
         let results = history.search("");
         assert_eq!(results.len(), 2);
     }
@@ -273,8 +288,8 @@ mod tests {
     #[test]
     fn search_finds_image_by_mime() {
         let mut history = test_history(10, 10);
-        history.push(MimeType::TextPlain, b"some text".to_vec());
-        history.push(MimeType::ImagePng, vec![0x89, 0x50, 0x4E, 0x47]);
+        history.push(MimeType::TextPlain, b"some text".to_vec(), normal());
+        history.push(MimeType::ImagePng, vec![0x89, 0x50, 0x4E, 0x47], normal());
         let results = history.search("png");
         assert_eq!(results.len(), 1);
         assert!(results[0].mime.is_image());
@@ -283,8 +298,8 @@ mod tests {
     #[test]
     fn search_finds_image_by_category() {
         let mut history = test_history(10, 10);
-        history.push(MimeType::TextPlain, b"no match".to_vec());
-        history.push(MimeType::ImageJpeg, vec![0xFF, 0xD8, 0xFF]);
+        history.push(MimeType::TextPlain, b"no match".to_vec(), normal());
+        history.push(MimeType::ImageJpeg, vec![0xFF, 0xD8, 0xFF], normal());
         let results = history.search("image");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].mime, MimeType::ImageJpeg);
@@ -293,8 +308,8 @@ mod tests {
     #[test]
     fn search_empty_returns_all_including_non_text() {
         let mut history = test_history(10, 10);
-        history.push(MimeType::TextPlain, b"hello".to_vec());
-        history.push(MimeType::ImagePng, vec![0x89, 0x50, 0x4E, 0x47]);
+        history.push(MimeType::TextPlain, b"hello".to_vec(), normal());
+        history.push(MimeType::ImagePng, vec![0x89, 0x50, 0x4E, 0x47], normal());
         let results = history.search("");
         assert_eq!(results.len(), 2);
     }
@@ -302,9 +317,15 @@ mod tests {
     #[test]
     fn pin_limit_reached() {
         let mut history = test_history(10, 2);
-        let id1 = history.push(MimeType::TextPlain, b"a".to_vec()).unwrap();
-        let id2 = history.push(MimeType::TextPlain, b"b".to_vec()).unwrap();
-        let id3 = history.push(MimeType::TextPlain, b"c".to_vec()).unwrap();
+        let id1 = history
+            .push(MimeType::TextPlain, b"a".to_vec(), normal())
+            .unwrap();
+        let id2 = history
+            .push(MimeType::TextPlain, b"b".to_vec(), normal())
+            .unwrap();
+        let id3 = history
+            .push(MimeType::TextPlain, b"c".to_vec(), normal())
+            .unwrap();
 
         assert_eq!(history.pin(id1), PinResult::Pinned);
         assert_eq!(history.pin(id2), PinResult::Pinned);
@@ -315,7 +336,9 @@ mod tests {
     #[test]
     fn pin_already_pinned_succeeds() {
         let mut history = test_history(10, 2);
-        let id1 = history.push(MimeType::TextPlain, b"a".to_vec()).unwrap();
+        let id1 = history
+            .push(MimeType::TextPlain, b"a".to_vec(), normal())
+            .unwrap();
         assert_eq!(history.pin(id1), PinResult::Pinned);
 
         assert_eq!(history.pin(id1), PinResult::Pinned);
@@ -332,9 +355,17 @@ mod tests {
     fn oversized_entry_rejected() {
         let mut history = ClipboardHistory::new(10, 10, 16);
 
-        assert!(history.push(MimeType::TextPlain, vec![0; 16]).is_some());
+        assert!(
+            history
+                .push(MimeType::TextPlain, vec![0; 16], normal())
+                .is_some()
+        );
 
-        assert!(history.push(MimeType::TextPlain, vec![0; 17]).is_none());
+        assert!(
+            history
+                .push(MimeType::TextPlain, vec![0; 17], normal())
+                .is_none()
+        );
         assert_eq!(history.len(), 1);
     }
 
@@ -342,7 +373,11 @@ mod tests {
     fn update_limits_triggers_eviction() {
         let mut history = test_history(10, 10);
         for i in 0..8 {
-            history.push(MimeType::TextPlain, format!("entry{i}").into_bytes());
+            history.push(
+                MimeType::TextPlain,
+                format!("entry{i}").into_bytes(),
+                normal(),
+            );
         }
         assert_eq!(history.unpinned_count(), 8);
 

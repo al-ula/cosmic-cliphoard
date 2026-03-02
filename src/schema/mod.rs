@@ -11,6 +11,7 @@ pub mod dbus;
 pub mod entry;
 pub mod history;
 pub mod mime;
+pub mod sensitive;
 
 pub use codec::{Codec, OxiCodeCodec, OxiCodeError};
 pub use config::{ClipboardConfig, KeyBinding, KeybindingsConfig};
@@ -18,6 +19,7 @@ pub use dbus::ClipboardManagerProxy;
 pub use entry::{ClipboardEntry, EntryId};
 pub use history::{ClipboardHistory, PinResult};
 pub use mime::MimeType;
+pub use sensitive::{DetectionConfig, SensitiveInfo};
 
 /// The base application ID.
 pub const APP_ID: &str = "com.github.al_ula.Cliphoard";
