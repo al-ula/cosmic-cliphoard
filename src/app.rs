@@ -5,6 +5,7 @@
 use crate::config::{Config, KeyBinding, KeyBindingExt, KeybindingsConfig};
 use crate::fl;
 use crate::schema::entry::ClipboardEntry;
+use crate::schema::history::fuzzy_search;
 use crate::schema::{Codec, DBUS_NAME, DBUS_PATH, OxiCodeCodec};
 use cosmic::iced::event::{self, Event, listen_raw};
 use cosmic::iced::futures::SinkExt;
@@ -304,22 +305,11 @@ impl OverlayState {
     }
 
     fn filtered_entries(&self) -> Vec<&ClipboardEntry> {
-        self.entries
-            .iter()
-            .filter(|e| match self.page {
-                Page::All => true,
-                Page::Pinned => e.pinned,
-            })
-            .filter(|e| {
-                if self.search_query.is_empty() {
-                    true
-                } else {
-                    e.as_text().is_some_and(|t| {
-                        t.to_lowercase().contains(&self.search_query.to_lowercase())
-                    })
-                }
-            })
-            .collect()
+        let page_filtered = self.entries.iter().filter(|e| match self.page {
+            Page::All => true,
+            Page::Pinned => e.pinned,
+        });
+        fuzzy_search(page_filtered, &self.search_query)
     }
 
     fn filtered_entries_count(&self) -> usize {

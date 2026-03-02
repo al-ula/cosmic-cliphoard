@@ -5,7 +5,28 @@ use crate::schema::MimeType;
 use super::entry::{ClipboardEntry, EntryId};
 use super::{DEFAULT_MAX_ENTRY_SIZE, DEFAULT_MAX_PINNED, DEFAULT_MAX_UNPINNED};
 use serde::{Deserialize, Serialize};
+use skim::fuzzy_matcher::skim::SkimMatcherV2;
+use skim::fuzzy_matcher::FuzzyMatcher;
 use std::collections::VecDeque;
+
+pub fn fuzzy_search<'a>(
+    entries: impl Iterator<Item = &'a ClipboardEntry>,
+    query: &str,
+) -> Vec<&'a ClipboardEntry> {
+    if query.is_empty() {
+        return entries.collect();
+    }
+    let matcher = SkimMatcherV2::default();
+    let mut scored: Vec<(i64, &ClipboardEntry)> = entries
+        .filter_map(|entry| {
+            let text = entry.search_text();
+            let score = matcher.fuzzy_match(&text, query)?;
+            Some((score, entry))
+        })
+        .collect();
+    scored.sort_by(|a, b| b.0.cmp(&a.0));
+    scored.into_iter().map(|(_, e)| e).collect()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PinResult {
@@ -153,14 +174,7 @@ impl ClipboardHistory {
     }
 
     pub fn search(&self, query: &str) -> Vec<&ClipboardEntry> {
-        let query_lower = query.to_lowercase();
-        self.entries
-            .iter()
-            .filter(|e| {
-                e.as_text()
-                    .is_some_and(|t| t.to_lowercase().contains(&query_lower))
-            })
-            .collect()
+        fuzzy_search(self.entries.iter(), query)
     }
 }
 
@@ -224,6 +238,65 @@ mod tests {
         let results = history.search("hello");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].as_text(), Some("Hello World"));
+    }
+
+    #[test]
+    fn search_fuzzy_matching() {
+        let mut history = test_history(10, 10);
+        history.push(MimeType::TextPlain, b"clipboard_manager".to_vec());
+        history.push(MimeType::TextPlain, b"something else".to_vec());
+        let results = history.search("clmgr");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].as_text(), Some("clipboard_manager"));
+    }
+
+    #[test]
+    fn search_score_ordering() {
+        let mut history = test_history(10, 10);
+        history.push(MimeType::TextPlain, b"xxxxxxxhelloxxxxxxx".to_vec());
+        history.push(MimeType::TextPlain, b"hello".to_vec());
+        let results = history.search("hello");
+        assert_eq!(results.len(), 2);
+        // Exact/tighter match should rank first
+        assert_eq!(results[0].as_text(), Some("hello"));
+    }
+
+    #[test]
+    fn search_empty_query_returns_all() {
+        let mut history = test_history(10, 10);
+        history.push(MimeType::TextPlain, b"alpha".to_vec());
+        history.push(MimeType::TextPlain, b"beta".to_vec());
+        let results = history.search("");
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn search_finds_image_by_mime() {
+        let mut history = test_history(10, 10);
+        history.push(MimeType::TextPlain, b"some text".to_vec());
+        history.push(MimeType::ImagePng, vec![0x89, 0x50, 0x4E, 0x47]);
+        let results = history.search("png");
+        assert_eq!(results.len(), 1);
+        assert!(results[0].mime.is_image());
+    }
+
+    #[test]
+    fn search_finds_image_by_category() {
+        let mut history = test_history(10, 10);
+        history.push(MimeType::TextPlain, b"no match".to_vec());
+        history.push(MimeType::ImageJpeg, vec![0xFF, 0xD8, 0xFF]);
+        let results = history.search("image");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].mime, MimeType::ImageJpeg);
+    }
+
+    #[test]
+    fn search_empty_returns_all_including_non_text() {
+        let mut history = test_history(10, 10);
+        history.push(MimeType::TextPlain, b"hello".to_vec());
+        history.push(MimeType::ImagePng, vec![0x89, 0x50, 0x4E, 0x47]);
+        let results = history.search("");
+        assert_eq!(results.len(), 2);
     }
 
     #[test]
