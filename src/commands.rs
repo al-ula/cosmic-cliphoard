@@ -3,7 +3,7 @@
 use crate::cli::Command;
 use crate::schema::{ClipboardEntry, ClipboardManagerProxy, Codec, OxiCodeCodec};
 use std::error::Error;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 use zbus::Connection;
 
 const SERVICE_UNIT: &str = include_str!("../resources/systemd/cliphoard-daemon.service");
@@ -48,7 +48,7 @@ pub fn run_decode(mime: Option<String>, json: bool) {
     let mime = mime.map(|s| crate::schema::MimeType::parse(&s));
 
     if let Err(e) = crate::decode::decode_stdin(mime, json) {
-        eprintln!("Error: {e}");
+        error!("Error: {e}");
         std::process::exit(1);
     }
 }
@@ -65,10 +65,10 @@ pub async fn run(cmd: Command) {
         .init();
 
     if let Err(e) = run_command(cmd).await {
-        eprintln!("Error: {e}");
+        error!("Error: {e}");
         let mut source = std::error::Error::source(&*e);
         while let Some(s) = source {
-            eprintln!("  caused by: {s}");
+            error!("  caused by: {s}");
             source = std::error::Error::source(s);
         }
         std::process::exit(1);
@@ -120,16 +120,16 @@ async fn list_entries(limit: Option<usize>, query: Option<String>) -> Result<(),
     };
 
     if entries.is_empty() {
-        println!("No entries found.");
+        info!("No entries found.");
         return Ok(());
     }
 
-    println!("{:<8} {:<6} {:<10} Preview", "ID", "Pinned", "MIME");
-    println!("{}", "-".repeat(60));
+    info!("{:<8} {:<6} {:<10} Preview", "ID", "Pinned", "MIME");
+    info!("{}", "-".repeat(60));
 
     for entry in entries {
         let pinned = if entry.pinned { "yes" } else { "no" };
-        println!(
+        info!(
             "{:<8} {:<6} {:<10} {}",
             entry.id.0,
             pinned,
@@ -149,7 +149,7 @@ async fn paste_entry(id: u64) -> Result<(), CommandError> {
 
     if success {
         info!(id, "Entry pasted to clipboard");
-        println!("Entry {id} pasted to clipboard.");
+        info!("Entry {id} pasted to clipboard.");
     } else {
         return Err(CommandError::NotFound(id));
     }
@@ -165,7 +165,7 @@ async fn delete_entry(id: u64) -> Result<(), CommandError> {
 
     if removed {
         info!(id, "Entry deleted");
-        println!("Entry {id} deleted.");
+        info!("Entry {id} deleted.");
     } else {
         return Err(CommandError::NotFound(id));
     }
@@ -181,7 +181,7 @@ async fn pin_entry(id: u64) -> Result<(), CommandError> {
 
     if pinned {
         info!(id, "Entry pinned");
-        println!("Entry {id} pinned.");
+        info!("Entry {id} pinned.");
     } else {
         return Err(CommandError::NotFound(id));
     }
@@ -197,7 +197,7 @@ async fn unpin_entry(id: u64) -> Result<(), CommandError> {
 
     if unpinned {
         info!(id, "Entry unpinned");
-        println!("Entry {id} unpinned.");
+        info!("Entry {id} unpinned.");
     } else {
         return Err(CommandError::NotFound(id));
     }
@@ -212,26 +212,26 @@ pub fn generate_service(path: Option<std::path::PathBuf>) {
             if let Some(d) = dirs::config_dir() {
                 d.join("systemd/user")
             } else {
-                eprintln!("Error: could not determine config directory");
+                error!("Error: could not determine config directory");
                 std::process::exit(1);
             }
         }
     };
 
     if let Err(e) = std::fs::create_dir_all(&dir) {
-        eprintln!("Error creating {}: {e}", dir.display());
+        error!("Error creating {}: {e}", dir.display());
         std::process::exit(1);
     }
 
     let path = dir.join("cliphoard-daemon.service");
     if let Err(e) = std::fs::write(&path, SERVICE_UNIT) {
-        eprintln!("Error writing {}: {e}", path.display());
+        error!("Error writing {}: {e}", path.display());
         std::process::exit(1);
     }
 
-    println!("Wrote service to {}", path.display());
-    println!("Run `systemctl --user daemon-reload` to reload units.");
-    println!("Run `systemctl --user enable --now cliphoard-daemon` to start.");
+    info!("Wrote service to {}", path.display());
+    info!("Run `systemctl --user daemon-reload` to reload units.");
+    info!("Run `systemctl --user enable --now cliphoard-daemon` to start.");
 }
 
 async fn clear_history() -> Result<(), CommandError> {
@@ -241,7 +241,7 @@ async fn clear_history() -> Result<(), CommandError> {
     proxy.clear().await?;
 
     info!("History cleared");
-    println!("History cleared.");
+    info!("History cleared.");
 
     Ok(())
 }

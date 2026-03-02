@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
-//! Keybinding configuration for the clipboard overlay.
-
-use cosmic::iced_core::keyboard::{self, Modifiers, key::Named};
-
 pub use crate::schema::{KeyBinding, KeybindingsConfig};
+use cosmic::iced_core::keyboard::{self, Modifiers, key::Named};
+use tracing::error;
 
 pub type Config = KeybindingsConfig;
 
@@ -78,7 +76,7 @@ pub fn load_config() -> KeybindingsConfig {
             match serde_json::from_slice::<KeybindingsConfig>(&bytes) {
                 Ok(config) => config,
                 Err(e) => {
-                    eprintln!("Failed to parse keybindings config: {e}");
+                    error!("Failed to parse keybindings config: {e}");
                     KeybindingsConfig::default()
                 }
             }
