@@ -2,8 +2,8 @@
 
 //! Wayland clipboard watcher using wayland-clipboard-listener.
 
-use crate::decode::detect_mime;
-use crate::schema::ClipboardHistory;
+use crate::decode::{detect_mime, detect_sensitive};
+use crate::schema::{ClipboardHistory, DetectionConfig};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info};
@@ -21,6 +21,7 @@ pub enum WatcherError {
 pub struct ClipboardWatcher {
     history: Arc<RwLock<ClipboardHistory>>,
     storage: Arc<super::storage::Storage>,
+    detection_config: DetectionConfig,
 }
 
 impl ClipboardWatcher {
@@ -28,7 +29,17 @@ impl ClipboardWatcher {
         history: Arc<RwLock<ClipboardHistory>>,
         storage: Arc<super::storage::Storage>,
     ) -> Self {
-        Self { history, storage }
+        Self {
+            history,
+            storage,
+            detection_config: DetectionConfig::default(),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn with_detection_config(mut self, config: DetectionConfig) -> Self {
+        self.detection_config = config;
+        self
     }
 
     pub async fn start(&self) -> Result<(), WatcherError> {
@@ -41,9 +52,10 @@ impl ClipboardWatcher {
 
         let history = Arc::clone(&self.history);
         let storage = Arc::clone(&self.storage);
+        let detection_config = self.detection_config.clone();
 
         tokio::spawn(async move {
-            let result = Self::watch_loop(history, storage, stream).await;
+            let result = Self::watch_loop(history, storage, stream, detection_config).await;
             if let Err(e) = result {
                 error!("Clipboard watcher error: {}", e);
             }
@@ -56,6 +68,7 @@ impl ClipboardWatcher {
         history: Arc<RwLock<ClipboardHistory>>,
         storage: Arc<super::storage::Storage>,
         mut stream: WlClipboardPasteStream,
+        detection_config: DetectionConfig,
     ) -> Result<(), WatcherError> {
         for msg in stream.paste_stream().flatten() {
             let ctx = msg.context;
@@ -68,10 +81,12 @@ impl ClipboardWatcher {
             }
 
             let mime = detect_mime(&data);
+            let sensitive = detect_sensitive(&data, &mime_from_wl, &detection_config);
             debug!(
                 wl_mime = %mime_from_wl,
                 detected_mime = %mime,
                 len = data.len(),
+                sensitive = ?sensitive.state,
                 "New clipboard content detected"
             );
 
@@ -86,7 +101,7 @@ impl ClipboardWatcher {
 
             let added = {
                 let mut hist = history.write().await;
-                match hist.push(mime.clone(), data) {
+                match hist.push(mime.clone(), data, sensitive) {
                     Some(id) => {
                         info!(%id, %mime, "Added new clipboard entry");
                         true
