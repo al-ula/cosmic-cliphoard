@@ -3,7 +3,7 @@
 //! Clipboard entry types.
 
 use super::MimeType;
-use super::sensitive::SensitiveInfo;
+use super::sensitive::{SensitiveInfo, SensitiveState};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -113,6 +113,17 @@ impl ClipboardEntry {
                 Some((w, h))
             }
             _ => None,
+        }
+    }
+
+    pub fn toggle_sensitive(&mut self) {
+        match self.sensitive.state {
+            SensitiveState::Normal => {
+                self.sensitive = SensitiveInfo::secret();
+            }
+            _ => {
+                self.sensitive = SensitiveInfo::normal();
+            }
         }
     }
 

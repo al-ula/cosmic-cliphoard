@@ -2,6 +2,7 @@
 
 //! Configuration types for the clipboard manager.
 
+use super::sensitive::DetectionConfig;
 use super::{DEFAULT_MAX_ENTRY_SIZE, DEFAULT_MAX_PINNED, DEFAULT_MAX_UNPINNED};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -15,6 +16,8 @@ pub struct ClipboardConfig {
     pub max_pinned: usize,
     #[serde(default = "default_max_entry_size")]
     pub max_entry_size: usize,
+    #[serde(default)]
+    pub detection: DetectionConfig,
 }
 
 fn default_max_unpinned() -> usize {
@@ -35,6 +38,7 @@ impl Default for ClipboardConfig {
             max_unpinned: DEFAULT_MAX_UNPINNED,
             max_pinned: DEFAULT_MAX_PINNED,
             max_entry_size: DEFAULT_MAX_ENTRY_SIZE,
+            detection: DetectionConfig::default(),
         }
     }
 }
@@ -167,6 +171,10 @@ pub struct KeybindingsConfig {
     pub tab_all: KeyBinding,
     #[serde(default = "default_tab_pinned")]
     pub tab_pinned: KeyBinding,
+    #[serde(default = "default_toggle_reveal")]
+    pub toggle_reveal: KeyBinding,
+    #[serde(default = "default_toggle_sensitive")]
+    pub toggle_sensitive: KeyBinding,
 }
 
 fn default_toggle_pin() -> KeyBinding {
@@ -214,6 +222,24 @@ fn default_tab_pinned() -> KeyBinding {
     }
 }
 
+fn default_toggle_reveal() -> KeyBinding {
+    KeyBinding {
+        key: "r".into(),
+        ctrl: true,
+        alt: false,
+        shift: false,
+    }
+}
+
+fn default_toggle_sensitive() -> KeyBinding {
+    KeyBinding {
+        key: "s".into(),
+        ctrl: true,
+        alt: false,
+        shift: false,
+    }
+}
+
 impl Default for KeybindingsConfig {
     fn default() -> Self {
         Self {
@@ -222,6 +248,8 @@ impl Default for KeybindingsConfig {
             delete_entry: default_delete_entry(),
             tab_all: default_tab_all(),
             tab_pinned: default_tab_pinned(),
+            toggle_reveal: default_toggle_reveal(),
+            toggle_sensitive: default_toggle_sensitive(),
         }
     }
 }
