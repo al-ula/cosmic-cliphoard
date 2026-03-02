@@ -26,6 +26,17 @@ default: build-release
 clean:
     cargo clean
 
+vendor:
+    cargo vendor
+
+clean-vendor:
+    rm -rf vendor
+
+clean-dist: clean clean-vendor
+
+build-vendored *args:
+    cargo build --frozen {{args}}
+
 build-debug *args:
     cargo build {{args}}
 
