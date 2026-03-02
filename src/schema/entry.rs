@@ -60,7 +60,11 @@ impl ClipboardEntry {
             if collapsed.len() <= max_len {
                 collapsed
             } else {
-                let mut s = collapsed[..max_len].to_owned();
+                let truncated = match collapsed.char_indices().nth(max_len) {
+                    Some((idx, _)) => &collapsed[..idx],
+                    None => &collapsed,
+                };
+                let mut s = truncated.to_owned();
                 s.push('…');
                 s
             }
