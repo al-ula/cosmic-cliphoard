@@ -172,6 +172,15 @@ impl ClipboardHistory {
         self.entries.iter().filter(|e| !e.pinned).count()
     }
 
+    pub fn toggle_sensitive(&mut self, id: EntryId) -> bool {
+        if let Some(entry) = self.get_mut(id) {
+            entry.toggle_sensitive();
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn update_limits(&mut self, max_unpinned: usize, max_pinned: usize, max_entry_size: usize) {
         self.max_unpinned = max_unpinned;
         self.max_pinned = max_pinned;

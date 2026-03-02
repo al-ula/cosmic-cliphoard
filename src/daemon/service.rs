@@ -122,6 +122,19 @@ impl ClipboardManagerService {
         Ok(unpinned)
     }
 
+    async fn toggle_sensitive(&self, id: u64) -> zbus::fdo::Result<bool> {
+        debug!(id, "toggle_sensitive called");
+        let toggled = {
+            let mut hist = self.history.write().await;
+            hist.toggle_sensitive(EntryId(id))
+        };
+        if toggled {
+            self.persist().await;
+            info!(id, "Entry sensitivity toggled");
+        }
+        Ok(toggled)
+    }
+
     async fn clear(&self) -> zbus::fdo::Result<()> {
         debug!("clear called");
         {
@@ -201,6 +214,7 @@ impl ClipboardManagerService {
             max_unpinned,
             max_pinned,
             max_entry_size,
+            ..ClipboardConfig::default()
         };
 
         if let Err(e) = self.storage.save_config(&config) {
