@@ -67,7 +67,9 @@ sudo install -Dm0644 resources/com.github.al_ula.Cliphoard.desktop /usr/share/ap
 sudo install -Dm0644 resources/com.github.al_ula.Cliphoard.Applet.desktop /usr/share/applications/com.github.al_ula.Cliphoard.Applet.desktop
 sudo install -Dm0644 resources/com.github.al_ula.Cliphoard.metainfo.xml /usr/share/appdata/com.github.al_ula.Cliphoard.metainfo.xml
 sudo install -Dm0644 resources/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard.svg /usr/share/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard.svg
+sudo install -Dm0644 resources/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard-symbolic.svg /usr/share/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard-symbolic.svg
 sudo install -Dm0644 resources/systemd/cliphoard-daemon.service /usr/lib/systemd/user/cliphoard-daemon.service
+sudo install -Dm0644 resources/systemd/cliphoard-tray.service /usr/lib/systemd/user/cliphoard-tray.service
 ```
 
 This installs:
@@ -75,13 +77,19 @@ This installs:
 - Binary to `$prefix/bin/cliphoard`
 - Desktop entries to `$prefix/share/applications/`
 - AppStream metadata to `$prefix/share/appdata/`
-- Icon to `$prefix/share/icons/hicolor/scalable/apps/`
-- Systemd user service to `$prefix/lib/systemd/user/`
+- Icons to `$prefix/share/icons/hicolor/scalable/apps/`
+- Systemd user services to `$prefix/lib/systemd/user/`
 
 After installing, enable and start the daemon:
 
 ```sh
 systemctl --user enable --now cliphoard-daemon.service
+```
+
+Optionally, enable the tray service:
+
+```sh
+systemctl --user enable --now cliphoard-tray.service
 ```
 
 ## Uninstall
@@ -100,6 +108,28 @@ just release
 ```
 
 Produces `cliphoard-<version>-<target>.tar.gz` in the working directory.
+
+## Development
+
+Run the application directly:
+
+```sh
+just run
+```
+
+Sync the version in metainfo.xml with Cargo.toml:
+
+```sh
+just sync-version
+```
+
+Create a release tag:
+
+```sh
+just tag <version>
+```
+
+This updates all Cargo.toml files, syncs the metainfo version, and creates a git tag.
 
 ## Building packages locally
 
