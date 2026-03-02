@@ -6,7 +6,8 @@ use std::error::Error;
 use tracing::{debug, error, info};
 use zbus::Connection;
 
-const SERVICE_UNIT: &str = include_str!("../resources/systemd/cliphoard-daemon.service");
+const SERVICE_UNIT_DAEMON: &str = include_str!("../resources/systemd/cliphoard-daemon.service");
+const SERVICE_UNIT_TRAY: &str = include_str!("../resources/systemd/cliphoard-tray.service");
 
 #[derive(Debug, thiserror::Error)]
 pub enum CommandError {
@@ -206,32 +207,50 @@ async fn unpin_entry(id: u64) -> Result<(), CommandError> {
 }
 
 pub fn generate_service(path: Option<std::path::PathBuf>) {
+    #[cfg(debug_assertions)]
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
+
+    #[cfg(not(debug_assertions))]
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .init();
+
     let dir = match path {
         Some(d) => d,
         None => {
             if let Some(d) = dirs::config_dir() {
                 d.join("systemd/user")
             } else {
-                error!("Error: could not determine config directory");
+                error!("could not determine config directory");
                 std::process::exit(1);
             }
         }
     };
 
     if let Err(e) = std::fs::create_dir_all(&dir) {
-        error!("Error creating {}: {e}", dir.display());
+        error!("creating {}: {e}", dir.display());
         std::process::exit(1);
     }
 
-    let path = dir.join("cliphoard-daemon.service");
-    if let Err(e) = std::fs::write(&path, SERVICE_UNIT) {
-        error!("Error writing {}: {e}", path.display());
+    let daemon_path = dir.join("cliphoard-daemon.service");
+    if let Err(e) = std::fs::write(&daemon_path, SERVICE_UNIT_DAEMON) {
+        error!("writing {}: {e}", daemon_path.display());
         std::process::exit(1);
     }
+    info!("Wrote service to {}", daemon_path.display());
 
-    info!("Wrote service to {}", path.display());
+    let tray_path = dir.join("cliphoard-tray.service");
+    if let Err(e) = std::fs::write(&tray_path, SERVICE_UNIT_TRAY) {
+        error!("writing {}: {e}", tray_path.display());
+        std::process::exit(1);
+    }
+    info!("Wrote service to {}", tray_path.display());
+
     info!("Run `systemctl --user daemon-reload` to reload units.");
-    info!("Run `systemctl --user enable --now cliphoard-daemon` to start.");
+    info!("Run `systemctl --user enable --now cliphoard-daemon` to start daemon.");
+    info!("Run `systemctl --user enable --now cliphoard-tray` to start tray.");
 }
 
 async fn clear_history() -> Result<(), CommandError> {
