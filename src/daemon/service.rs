@@ -235,7 +235,7 @@ pub async fn run_daemon() -> Result<(), ServiceError> {
     );
     let history = Arc::new(RwLock::new(history_data));
 
-    let watcher = super::watcher::ClipboardWatcher::new(Arc::clone(&history));
+    let watcher = super::watcher::ClipboardWatcher::new(Arc::clone(&history), Arc::clone(&storage));
     watcher.start().await?;
 
     let service = ClipboardManagerService::new(Arc::clone(&history), storage);

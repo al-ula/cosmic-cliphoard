@@ -10,6 +10,7 @@ appdata := appid + '.metainfo.xml'
 desktop := appid + '.desktop'
 applet-desktop := appid + '.Applet.desktop'
 icon-svg := appid + '.svg'
+icon-symbolic-svg := appid + '-symbolic.svg'
 
 base-dir := absolute_path(clean(rootdir / prefix))
 appdata-dst := base-dir / 'share' / 'appdata' / appdata
@@ -44,11 +45,12 @@ install:
     install -Dm0644 {{ 'resources' / applet-desktop }} {{applet-desktop-dst}}
     install -Dm0644 {{ 'resources' / appdata }} {{appdata-dst}}
     install -Dm0644 {{ 'resources' / 'icons' / 'hicolor' / 'scalable' / 'apps' / icon-svg }} {{icon-svg-dst / icon-svg}}
+    install -Dm0644 {{ 'resources' / 'icons' / 'hicolor' / 'scalable' / 'apps' / icon-symbolic-svg }} {{icon-svg-dst / icon-symbolic-svg}}
     install -Dm0644 {{ 'resources' / 'systemd' / 'cliphoard-daemon.service' }} {{systemd-user-dst / 'cliphoard-daemon.service'}}
     install -Dm0644 {{ 'resources' / 'systemd' / 'cliphoard-tray.service' }} {{systemd-user-dst / 'cliphoard-tray.service'}}
 
 uninstall:
-    rm {{bin-dst}} {{desktop-dst}} {{applet-desktop-dst}} {{icon-svg-dst / icon-svg}} {{systemd-user-dst / 'cliphoard-daemon.service'}} {{systemd-user-dst / 'cliphoard-tray.service'}}
+    rm {{bin-dst}} {{desktop-dst}} {{applet-desktop-dst}} {{icon-svg-dst / icon-svg}} {{icon-svg-dst / icon-symbolic-svg}} {{systemd-user-dst / 'cliphoard-daemon.service'}} {{systemd-user-dst / 'cliphoard-tray.service'}}
 
 sync-version:
     set -euo pipefail
@@ -85,6 +87,7 @@ release: build-release
     cp "resources/{{ applet-desktop }}" "$release_dir/share/applications/"
     cp "resources/{{ appdata }}" "$release_dir/share/appdata/"
     cp "resources/icons/hicolor/scalable/apps/{{ icon-svg }}" "$release_dir/share/icons/hicolor/scalable/apps/"
+    cp "resources/icons/hicolor/scalable/apps/{{ icon-symbolic-svg }}" "$release_dir/share/icons/hicolor/scalable/apps/"
     tar czf "$archive" -C dist "cliphoard-${version}-${target}"
     rm -rf "$release_dir"
     echo "Created $archive"
