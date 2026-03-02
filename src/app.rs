@@ -6,6 +6,7 @@ use crate::config::{Config, KeyBinding, KeyBindingExt, KeybindingsConfig};
 use crate::fl;
 use crate::schema::entry::ClipboardEntry;
 use crate::schema::history::fuzzy_search;
+use crate::schema::sensitive::{DetectionConfig, SensitiveInfo, SensitiveState};
 use crate::schema::{Codec, DBUS_NAME, DBUS_PATH, OxiCodeCodec};
 use cosmic::iced::event::{self, Event, listen_raw};
 use cosmic::iced::futures::SinkExt;
@@ -20,6 +21,7 @@ use cosmic::iced_core::widget::Id;
 use cosmic::iced_runtime::Appearance;
 use cosmic::widget;
 use cosmic::{Element, Theme};
+use std::collections::HashSet;
 use std::str::FromStr;
 
 const PREVIEW_LEN: usize = 32;
@@ -74,6 +76,8 @@ pub enum CapturingKeybinding {
     DeleteEntry,
     TabAll,
     TabPinned,
+    ToggleReveal,
+    ToggleSensitive,
 }
 
 struct OverlayState {
@@ -96,6 +100,8 @@ struct OverlayState {
     show_tips: bool,
     show_daemon_notice: bool,
     daemon_notice_dismissed: bool,
+    revealed_entries: HashSet<u64>,
+    settings_detection: DetectionConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -122,6 +128,8 @@ struct SettingsKeybindings {
     delete_entry: String,
     tab_all: String,
     tab_pinned: String,
+    toggle_reveal: String,
+    toggle_sensitive: String,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -131,6 +139,8 @@ struct KeybindingErrors {
     delete_entry: Option<String>,
     tab_all: Option<String>,
     tab_pinned: Option<String>,
+    toggle_reveal: Option<String>,
+    toggle_sensitive: Option<String>,
 }
 
 impl KeybindingErrors {
@@ -140,6 +150,8 @@ impl KeybindingErrors {
             || self.delete_entry.is_some()
             || self.tab_all.is_some()
             || self.tab_pinned.is_some()
+            || self.toggle_reveal.is_some()
+            || self.toggle_sensitive.is_some()
     }
 }
 
@@ -151,6 +163,8 @@ impl From<&Config> for SettingsKeybindings {
             delete_entry: config.delete_entry.to_string(),
             tab_all: config.tab_all.to_string(),
             tab_pinned: config.tab_pinned.to_string(),
+            toggle_reveal: config.toggle_reveal.to_string(),
+            toggle_sensitive: config.toggle_sensitive.to_string(),
         }
     }
 }
@@ -163,6 +177,8 @@ impl SettingsKeybindings {
             delete_entry: KeyBinding::from_str(&self.delete_entry).unwrap_or_default(),
             tab_all: KeyBinding::from_str(&self.tab_all).unwrap_or_default(),
             tab_pinned: KeyBinding::from_str(&self.tab_pinned).unwrap_or_default(),
+            toggle_reveal: KeyBinding::from_str(&self.toggle_reveal).unwrap_or_default(),
+            toggle_sensitive: KeyBinding::from_str(&self.toggle_sensitive).unwrap_or_default(),
         }
     }
 }
@@ -204,6 +220,14 @@ enum Message {
     OpenUrl(String),
     DismissTips,
     DismissDaemonNotice,
+    ToggleReveal(u64),
+    ToggleRevealSelected,
+    ToggleSensitive(u64),
+    ToggleSensitiveSelected,
+    ToggleSensitiveDone(Result<bool, String>),
+    SettingsDetectionMimeChanged(bool),
+    SettingsDetectionHeuristicsChanged(bool),
+    SettingsDetectionTokensChanged(bool),
 }
 
 impl std::fmt::Debug for OverlayState {
@@ -238,6 +262,8 @@ impl OverlayState {
             show_tips: crate::config::is_first_launch(),
             show_daemon_notice: false,
             daemon_notice_dismissed: false,
+            revealed_entries: HashSet::new(),
+            settings_detection: DetectionConfig::default(),
         };
         if let Ok(mut kb) = KEYBINDINGS.write() {
             *kb = Some(state.config.clone());
@@ -568,6 +594,14 @@ impl OverlayState {
                     self.keybinding_errors.tab_pinned = KeyBinding::from_str(&value).err();
                     self.settings_keybindings.tab_pinned = value;
                 }
+                "toggle_reveal" => {
+                    self.keybinding_errors.toggle_reveal = KeyBinding::from_str(&value).err();
+                    self.settings_keybindings.toggle_reveal = value;
+                }
+                "toggle_sensitive" => {
+                    self.keybinding_errors.toggle_sensitive = KeyBinding::from_str(&value).err();
+                    self.settings_keybindings.toggle_sensitive = value;
+                }
                 _ => {}
             },
             Message::StartCaptureKeybinding(which) => {
@@ -607,6 +641,16 @@ impl OverlayState {
                         self.keybinding_errors.tab_pinned =
                             KeyBinding::from_str(&keybinding_str).err();
                         self.settings_keybindings.tab_pinned = keybinding_str;
+                    }
+                    CapturingKeybinding::ToggleReveal => {
+                        self.keybinding_errors.toggle_reveal =
+                            KeyBinding::from_str(&keybinding_str).err();
+                        self.settings_keybindings.toggle_reveal = keybinding_str;
+                    }
+                    CapturingKeybinding::ToggleSensitive => {
+                        self.keybinding_errors.toggle_sensitive =
+                            KeyBinding::from_str(&keybinding_str).err();
+                        self.settings_keybindings.toggle_sensitive = keybinding_str;
                     }
                     CapturingKeybinding::None => {}
                 }
@@ -649,6 +693,7 @@ impl OverlayState {
                 let default_config = KeybindingsConfig::default();
                 self.settings_keybindings = SettingsKeybindings::from(&default_config);
                 self.keybinding_errors = KeybindingErrors::default();
+                self.settings_detection = DetectionConfig::default();
             }
             Message::SettingsSaved(result) => {
                 if let Err(e) = result {
@@ -665,6 +710,51 @@ impl OverlayState {
             Message::DismissDaemonNotice => {
                 self.show_daemon_notice = false;
                 self.daemon_notice_dismissed = true;
+            }
+            Message::ToggleReveal(id) => {
+                if self.revealed_entries.contains(&id) {
+                    self.revealed_entries.remove(&id);
+                } else {
+                    self.revealed_entries.insert(id);
+                }
+            }
+            Message::ToggleRevealSelected => {
+                if let Some(id) = self.selected_entry_id()
+                    && let Some(entry) = self.entries.iter().find(|e| e.id.0 == id)
+                    && entry.sensitive.state.is_sensitive()
+                {
+                    if self.revealed_entries.contains(&id) {
+                        self.revealed_entries.remove(&id);
+                    } else {
+                        self.revealed_entries.insert(id);
+                    }
+                }
+            }
+            Message::ToggleSensitive(id) => {
+                return Task::perform(
+                    call_daemon_action(DaemonAction::ToggleSensitive(id)),
+                    Message::ToggleSensitiveDone,
+                );
+            }
+            Message::ToggleSensitiveSelected => {
+                if let Some(id) = self.selected_entry_id() {
+                    return Task::perform(
+                        call_daemon_action(DaemonAction::ToggleSensitive(id)),
+                        Message::ToggleSensitiveDone,
+                    );
+                }
+            }
+            Message::ToggleSensitiveDone(_result) => {
+                return Task::perform(fetch_entries(), Message::EntriesLoaded);
+            }
+            Message::SettingsDetectionMimeChanged(val) => {
+                self.settings_detection.mime_hints = val;
+            }
+            Message::SettingsDetectionHeuristicsChanged(val) => {
+                self.settings_detection.heuristics = val;
+            }
+            Message::SettingsDetectionTokensChanged(val) => {
+                self.settings_detection.tokens = val;
             }
         }
         Task::none()
@@ -784,6 +874,8 @@ impl OverlayState {
                     CapturingKeybinding::DeleteEntry => "delete_entry",
                     CapturingKeybinding::TabAll => "tab_all",
                     CapturingKeybinding::TabPinned => "tab_pinned",
+                    CapturingKeybinding::ToggleReveal => "toggle_reveal",
+                    CapturingKeybinding::ToggleSensitive => "toggle_sensitive",
                     CapturingKeybinding::None => "",
                 };
                 Message::SettingsKeybindingChanged(name.to_string(), v)
@@ -895,16 +987,43 @@ impl OverlayState {
 
             for (idx, entry) in filtered.iter().enumerate() {
                 let id = entry.id.0;
-                let preview = entry.preview(PREVIEW_LEN);
                 let pinned = entry.pinned;
                 let is_selected = self.selected_index == Some(idx);
+                let is_sensitive = entry.sensitive.state.is_sensitive();
+                let is_revealed = self.revealed_entries.contains(&id);
 
-                let entry_text = widget::text(preview)
-                    .width(Length::Fill)
-                    .wrapping(cosmic::iced::widget::text::Wrapping::None)
-                    .shaping(cosmic::iced::widget::text::Shaping::Basic);
+                let preview_text = if is_sensitive && !is_revealed {
+                    format!(
+                        "{} {}",
+                        sensitive_label(&entry.sensitive),
+                        fl!("sensitive-masked")
+                    )
+                } else {
+                    entry.preview(PREVIEW_LEN)
+                };
 
-                let buttons = widget::row::with_capacity(3)
+                let entry_content: Element<'_, Message> = if is_sensitive {
+                    let icon = widget::icon::from_name("channel-secure-symbolic").size(16);
+                    widget::row::with_capacity(2)
+                        .push(icon)
+                        .push(
+                            widget::text(preview_text)
+                                .width(Length::Fill)
+                                .wrapping(cosmic::iced::widget::text::Wrapping::None)
+                                .shaping(cosmic::iced::widget::text::Shaping::Basic),
+                        )
+                        .spacing(4)
+                        .align_y(cosmic::iced::Alignment::Center)
+                        .into()
+                } else {
+                    widget::text(preview_text)
+                        .width(Length::Fill)
+                        .wrapping(cosmic::iced::widget::text::Wrapping::None)
+                        .shaping(cosmic::iced::widget::text::Shaping::Basic)
+                        .into()
+                };
+
+                let mut buttons = widget::row::with_capacity(5)
                     .push(
                         widget::button::icon(widget::icon::from_name("edit-copy-symbolic"))
                             .extra_small()
@@ -924,6 +1043,31 @@ impl OverlayState {
                         } else {
                             cosmic::theme::Button::Text
                         }),
+                    );
+
+                if is_sensitive {
+                    buttons = buttons.push(
+                        widget::button::icon(widget::icon::from_name(if is_revealed {
+                            "view-conceal-symbolic"
+                        } else {
+                            "view-reveal-symbolic"
+                        }))
+                        .extra_small()
+                        .on_press(Message::ToggleReveal(id))
+                        .class(cosmic::theme::Button::Text),
+                    );
+                }
+
+                buttons = buttons
+                    .push(
+                        widget::button::icon(widget::icon::from_name("channel-secure-symbolic"))
+                            .extra_small()
+                            .on_press(Message::ToggleSensitive(id))
+                            .class(if is_sensitive {
+                                cosmic::theme::Button::Suggested
+                            } else {
+                                cosmic::theme::Button::Text
+                            }),
                     )
                     .push(
                         widget::button::icon(widget::icon::from_name("edit-delete-symbolic"))
@@ -934,7 +1078,7 @@ impl OverlayState {
                     .spacing(4);
 
                 let row = widget::row::with_capacity(2)
-                    .push(entry_text)
+                    .push(entry_content)
                     .push(buttons)
                     .spacing(space_xs)
                     .align_y(cosmic::iced::Alignment::Center);
@@ -1009,59 +1153,77 @@ impl OverlayState {
                     .width(Length::Fixed(LIST_PANEL_WIDTH))
                     .height(Length::Fill);
 
-                let preview_content: Element<'_, Message> =
-                    if let Some(idx) = self.selected_index {
-                        if let Some(entry) = filtered.get(idx) {
-                            if entry.mime.is_text() {
-                                let text = entry.as_text().unwrap_or("");
-                                widget::scrollable(
-                                    widget::container(widget::text(text).wrapping(
+                let preview_content: Element<'_, Message> = if let Some(idx) = self.selected_index {
+                    if let Some(entry) = filtered.get(idx) {
+                        let entry_id = entry.id.0;
+                        let entry_is_sensitive = entry.sensitive.state.is_sensitive();
+                        let entry_is_revealed = self.revealed_entries.contains(&entry_id);
+
+                        if entry_is_sensitive && !entry_is_revealed {
+                            let icon = widget::icon::from_name("channel-secure-symbolic").size(48);
+                            let label = widget::text::title4(fl!("sensitive-content"));
+                            let hint = widget::text::body(fl!("sensitive-click-reveal"));
+                            let reveal_btn = widget::button::text(fl!("sensitive-reveal"))
+                                .on_press(Message::ToggleReveal(entry_id))
+                                .class(cosmic::theme::Button::Suggested);
+                            widget::container(
+                                widget::column::with_capacity(4)
+                                    .push(icon)
+                                    .push(label)
+                                    .push(hint)
+                                    .push(reveal_btn)
+                                    .spacing(space_s)
+                                    .align_x(cosmic::iced::Alignment::Center),
+                            )
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .align_x(cosmic::iced::alignment::Horizontal::Center)
+                            .align_y(cosmic::iced::alignment::Vertical::Center)
+                            .into()
+                        } else if entry.mime.is_text() {
+                            let text = entry.as_text().unwrap_or("");
+                            widget::scrollable(
+                                widget::container(
+                                    widget::text(text).wrapping(
                                         cosmic::iced::widget::text::Wrapping::WordOrGlyph,
-                                    ))
-                                    .padding(space_s),
+                                    ),
                                 )
-                                .height(Length::Fill)
-                                .into()
-                            } else if entry.mime.is_image() {
-                                let image_widget: Element<'_, Message> =
-                                    if entry.mime == crate::schema::MimeType::ImageSvg {
-                                        widget::svg(cosmic::widget::svg::Handle::from_memory(
-                                            entry.data.clone(),
-                                        ))
-                                        .width(Length::Fill)
-                                        .into()
-                                    } else {
-                                        widget::image(cosmic::widget::image::Handle::from_bytes(
-                                            entry.data.clone(),
-                                        ))
-                                        .width(Length::Fill)
-                                        .into()
-                                    };
-                                widget::container(image_widget)
+                                .padding(space_s),
+                            )
+                            .height(Length::Fill)
+                            .into()
+                        } else if entry.mime.is_image() {
+                            let image_widget: Element<'_, Message> =
+                                if entry.mime == crate::schema::MimeType::ImageSvg {
+                                    widget::svg(cosmic::widget::svg::Handle::from_memory(
+                                        entry.data.clone(),
+                                    ))
                                     .width(Length::Fill)
-                                    .height(Length::Fill)
-                                    .align_x(cosmic::iced::alignment::Horizontal::Center)
-                                    .align_y(cosmic::iced::alignment::Vertical::Center)
                                     .into()
-                            } else {
-                                let mime = &entry.mime;
-                                let len = entry.data.len();
-                                widget::container(widget::text(format!(
-                                    "[binary: {mime}, {len} bytes]"
-                                )))
+                                } else {
+                                    widget::image(cosmic::widget::image::Handle::from_bytes(
+                                        entry.data.clone(),
+                                    ))
+                                    .width(Length::Fill)
+                                    .into()
+                                };
+                            widget::container(image_widget)
                                 .width(Length::Fill)
                                 .height(Length::Fill)
                                 .align_x(cosmic::iced::alignment::Horizontal::Center)
                                 .align_y(cosmic::iced::alignment::Vertical::Center)
                                 .into()
-                            }
                         } else {
-                            widget::container(widget::text(fl!("preview-placeholder")))
-                                .width(Length::Fill)
-                                .height(Length::Fill)
-                                .align_x(cosmic::iced::alignment::Horizontal::Center)
-                                .align_y(cosmic::iced::alignment::Vertical::Center)
-                                .into()
+                            let mime = &entry.mime;
+                            let len = entry.data.len();
+                            widget::container(widget::text(format!(
+                                "[binary: {mime}, {len} bytes]"
+                            )))
+                            .width(Length::Fill)
+                            .height(Length::Fill)
+                            .align_x(cosmic::iced::alignment::Horizontal::Center)
+                            .align_y(cosmic::iced::alignment::Vertical::Center)
+                            .into()
                         }
                     } else {
                         widget::container(widget::text(fl!("preview-placeholder")))
@@ -1070,7 +1232,15 @@ impl OverlayState {
                             .align_x(cosmic::iced::alignment::Horizontal::Center)
                             .align_y(cosmic::iced::alignment::Vertical::Center)
                             .into()
-                    };
+                    }
+                } else {
+                    widget::container(widget::text(fl!("preview-placeholder")))
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .align_x(cosmic::iced::alignment::Horizontal::Center)
+                        .align_y(cosmic::iced::alignment::Vertical::Center)
+                        .into()
+                };
 
                 let preview_panel = widget::container(preview_content)
                     .width(Length::Fixed(PREVIEW_PANEL_WIDTH))
@@ -1148,6 +1318,36 @@ impl OverlayState {
                         &self.settings_keybindings.tab_pinned,
                         self.keybinding_errors.tab_pinned.as_deref(),
                         CapturingKeybinding::TabPinned,
+                    ))
+                    .add(self.keybinding_row(
+                        fl!("settings-kb-toggle-reveal"),
+                        &self.settings_keybindings.toggle_reveal,
+                        self.keybinding_errors.toggle_reveal.as_deref(),
+                        CapturingKeybinding::ToggleReveal,
+                    ))
+                    .add(self.keybinding_row(
+                        fl!("settings-kb-toggle-sensitive"),
+                        &self.settings_keybindings.toggle_sensitive,
+                        self.keybinding_errors.toggle_sensitive.as_deref(),
+                        CapturingKeybinding::ToggleSensitive,
+                    ));
+
+                let detection_section = widget::settings::section()
+                    .title(fl!("settings-detection"))
+                    .add(widget::settings::item(
+                        fl!("settings-detection-mime"),
+                        widget::toggler(self.settings_detection.mime_hints)
+                            .on_toggle(Message::SettingsDetectionMimeChanged),
+                    ))
+                    .add(widget::settings::item(
+                        fl!("settings-detection-heuristics"),
+                        widget::toggler(self.settings_detection.heuristics)
+                            .on_toggle(Message::SettingsDetectionHeuristicsChanged),
+                    ))
+                    .add(widget::settings::item(
+                        fl!("settings-detection-tokens"),
+                        widget::toggler(self.settings_detection.tokens)
+                            .on_toggle(Message::SettingsDetectionTokensChanged),
                     ));
 
                 let has_errors = self.keybinding_errors.has_errors();
@@ -1176,6 +1376,7 @@ impl OverlayState {
                 let settings_content = widget::settings::view_column(vec![
                     limits_section.into(),
                     keybindings_section.into(),
+                    detection_section.into(),
                     buttons.into(),
                 ]);
 
@@ -1405,6 +1606,12 @@ impl OverlayState {
                         return Some(Message::DeleteSelected);
                     }
                 }
+                if config.toggle_reveal.matches(key, modifiers) {
+                    return Some(Message::ToggleRevealSelected);
+                }
+                if config.toggle_sensitive.matches(key, modifiers) {
+                    return Some(Message::ToggleSensitiveSelected);
+                }
                 if config.tab_all.matches(key, modifiers) {
                     return Some(Message::SetPage(Page::All));
                 }
@@ -1540,6 +1747,23 @@ fn key_event_to_keybinding_str(key: &keyboard::Key, modifiers: &Modifiers) -> St
     parts.join("+")
 }
 
+fn sensitive_label(info: &SensitiveInfo) -> String {
+    match info.state {
+        SensitiveState::PasswordMime | SensitiveState::PasswordHeuristic => {
+            fl!("sensitive-password")
+        }
+        SensitiveState::Token => {
+            if let Some(ref pat) = info.method.token_pattern {
+                fl!("sensitive-token", pattern = pat.as_str())
+            } else {
+                fl!("sensitive-token", pattern = "unknown")
+            }
+        }
+        SensitiveState::Secret => fl!("sensitive-secret"),
+        SensitiveState::Normal => String::new(),
+    }
+}
+
 async fn fetch_entries() -> Result<Vec<ClipboardEntry>, String> {
     let conn = zbus::Connection::session()
         .await
@@ -1566,6 +1790,7 @@ enum DaemonAction {
     Pin(u64),
     Unpin(u64),
     Clear,
+    ToggleSensitive(u64),
 }
 
 async fn call_daemon_action(action: DaemonAction) -> Result<bool, String> {
@@ -1599,6 +1824,12 @@ async fn call_daemon_action(action: DaemonAction) -> Result<bool, String> {
         }
         DaemonAction::Clear => {
             proxy.clear().await.map_err(|e| e.to_string())?;
+        }
+        DaemonAction::ToggleSensitive(id) => {
+            proxy
+                .toggle_sensitive(id)
+                .await
+                .map_err(|e| e.to_string())?;
         }
     }
     Ok(should_exit)

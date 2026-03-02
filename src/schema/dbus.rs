@@ -22,6 +22,8 @@ pub trait ClipboardManager {
 
     fn paste_entry(&self, id: u64) -> zbus::fdo::Result<bool>;
 
+    fn toggle_sensitive(&self, id: u64) -> zbus::fdo::Result<bool>;
+
     fn update_config(
         &self,
         max_unpinned: u64,
