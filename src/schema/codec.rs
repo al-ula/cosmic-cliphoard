@@ -37,11 +37,16 @@ impl Codec for OxiCodeCodec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::{ClipboardEntry, ClipboardHistory, MimeType};
+    use crate::schema::{ClipboardEntry, ClipboardHistory, MimeType, SensitiveInfo};
 
     #[test]
     fn oxicode_roundtrip_entry() {
-        let entry = ClipboardEntry::new(1, MimeType::TextPlain, b"hello".to_vec());
+        let entry = ClipboardEntry::new(
+            1,
+            MimeType::TextPlain,
+            b"hello".to_vec(),
+            SensitiveInfo::normal(),
+        );
         let bytes = OxiCodeCodec::serialize(&entry).unwrap();
         let decoded: ClipboardEntry = OxiCodeCodec::deserialize(&bytes).unwrap();
         assert_eq!(decoded.id, entry.id);
@@ -51,8 +56,16 @@ mod tests {
     #[test]
     fn oxicode_roundtrip_history() {
         let mut history = ClipboardHistory::new(10, 10, 1024 * 1024);
-        history.push(MimeType::TextPlain, b"one".to_vec());
-        history.push(MimeType::TextHtml, b"<b>two</b>".to_vec());
+        history.push(
+            MimeType::TextPlain,
+            b"one".to_vec(),
+            SensitiveInfo::normal(),
+        );
+        history.push(
+            MimeType::TextHtml,
+            b"<b>two</b>".to_vec(),
+            SensitiveInfo::normal(),
+        );
 
         let bytes = OxiCodeCodec::serialize(&history).unwrap();
         let decoded: ClipboardHistory = OxiCodeCodec::deserialize(&bytes).unwrap();
