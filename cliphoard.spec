@@ -45,6 +45,7 @@ install -Dm0644 resources/com.github.al_ula.Cliphoard.desktop %{buildroot}%{_dat
 install -Dm0644 resources/com.github.al_ula.Cliphoard.Applet.desktop %{buildroot}%{_datadir}/applications/com.github.al_ula.Cliphoard.Applet.desktop
 install -Dm0644 resources/com.github.al_ula.Cliphoard.metainfo.xml %{buildroot}%{_datadir}/appdata/com.github.al_ula.Cliphoard.metainfo.xml
 install -Dm0644 resources/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard.svg
+install -Dm0644 resources/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard-symbolic.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard-symbolic.svg
 install -Dm0644 resources/systemd/cliphoard-daemon.service %{buildroot}%{_prefix}/lib/systemd/user/cliphoard-daemon.service
 install -Dm0644 resources/systemd/cliphoard-tray.service %{buildroot}%{_prefix}/lib/systemd/user/cliphoard-tray.service
 
@@ -72,6 +73,7 @@ appstream-util validate-relax --nonet %{buildroot}%{_datadir}/appdata/*.metainfo
 %{_datadir}/applications/com.github.al_ula.Cliphoard.Applet.desktop
 %{_datadir}/appdata/com.github.al_ula.Cliphoard.metainfo.xml
 %{_datadir}/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard.svg
+%{_datadir}/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard-symbolic.svg
 %{_prefix}/lib/systemd/user/cliphoard-daemon.service
 %{_prefix}/lib/systemd/user/cliphoard-tray.service
 

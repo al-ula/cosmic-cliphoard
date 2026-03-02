@@ -14,6 +14,7 @@ override_dh_auto_install:
 	install -Dm0644 resources/com.github.al_ula.Cliphoard.Applet.desktop debian/cliphoard/usr/share/applications/com.github.al_ula.Cliphoard.Applet.desktop
 	install -Dm0644 resources/com.github.al_ula.Cliphoard.metainfo.xml debian/cliphoard/usr/share/appdata/com.github.al_ula.Cliphoard.metainfo.xml
 	install -Dm0644 resources/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard.svg debian/cliphoard/usr/share/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard.svg
+	install -Dm0644 resources/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard-symbolic.svg debian/cliphoard/usr/share/icons/hicolor/scalable/apps/com.github.al_ula.Cliphoard-symbolic.svg
 	install -Dm0644 resources/systemd/cliphoard-daemon.service debian/cliphoard/usr/lib/systemd/user/cliphoard-daemon.service
 
 override_dh_auto_test:

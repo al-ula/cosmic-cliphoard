@@ -1,27 +1,19 @@
 // SPDX-License-Identifier: MPL-2.0
 
-//! COSMIC panel applet mode - mini clipboard manager popup.
-
-use crate::config::{KeyBindingExt, KeybindingsConfig, load_config};
 use crate::fl;
 use crate::schema::entry::ClipboardEntry;
 use crate::schema::{Codec, DBUS_NAME, DBUS_PATH, OxiCodeCodec};
 use cosmic::Element;
 use cosmic::app::{Application, Core, Task};
-use cosmic::iced::event::{self, Event, listen_raw};
+use cosmic::iced::event::{Event, listen_raw};
 use cosmic::iced::platform_specific::shell::commands::popup::{destroy_popup, get_popup};
-use cosmic::iced::{Length, Subscription, window};
+use cosmic::iced::{Length, Subscription, event, window};
 use cosmic::iced_core::keyboard::{self, key::Named};
-use cosmic::iced_core::widget::Id;
 use cosmic::widget;
 use tracing::debug;
 
 const PREVIEW_LEN: usize = 24;
 const LIST_HEIGHT: f32 = 350.0;
-
-/// Keybinding config for applet subscription (must be static for non-capturing closure).
-static APPLET_KEYBINDINGS: std::sync::RwLock<Option<KeybindingsConfig>> =
-    std::sync::RwLock::new(None);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Page {
@@ -41,22 +33,13 @@ pub enum Message {
     DeleteEntry(u64),
     TogglePin(u64, bool),
     ActionDone(Result<bool, String>),
-    // Search
     SearchChanged(String),
-    SearchChar(char),
-    SearchBackspace,
-    // Page toggle
     SetPage(Page),
-    // Selection
-    SelectNext,
-    SelectPrevious,
     SelectIndex(usize),
     ActivateSelected,
-    // Keybinding actions on selected
-    TogglePinSelected,
-    DeleteSelected,
     DismissTips,
     DismissDaemonNotice,
+    ProxyReady(Result<crate::schema::dbus::ClipboardManagerProxy<'static>, String>),
 }
 
 pub struct AppletModel {
@@ -67,11 +50,10 @@ pub struct AppletModel {
     page: Page,
     search_query: String,
     selected_index: Option<usize>,
-    config: KeybindingsConfig,
-    scrollable_id: Id,
     search_input_id: widget::Id,
     show_tips: bool,
     show_daemon_notice: bool,
+    dbus_proxy: Option<crate::schema::dbus::ClipboardManagerProxy<'static>>,
 }
 
 impl AppletModel {
@@ -129,10 +111,6 @@ impl Application for AppletModel {
     }
 
     fn init(core: Core, _flags: Self::Flags) -> (Self, cosmic::app::Task<Message>) {
-        let config = load_config();
-        if let Ok(mut kb) = APPLET_KEYBINDINGS.write() {
-            *kb = Some(config.clone());
-        }
         (
             Self {
                 core,
@@ -142,13 +120,14 @@ impl Application for AppletModel {
                 page: Page::All,
                 search_query: String::new(),
                 selected_index: None,
-                config,
-                scrollable_id: Id::unique(),
                 search_input_id: widget::Id::unique(),
                 show_tips: crate::config::is_first_launch(),
                 show_daemon_notice: false,
+                dbus_proxy: None,
             },
-            cosmic::app::Task::none(),
+            Task::perform(init_proxy(), |r| {
+                cosmic::Action::App(Message::ProxyReady(r))
+            }),
         )
     }
 
@@ -162,10 +141,6 @@ impl Application for AppletModel {
                 self.search_query.clear();
                 self.selected_index = None;
                 self.page = Page::All;
-                self.config = load_config();
-                if let Ok(mut kb) = APPLET_KEYBINDINGS.write() {
-                    *kb = Some(self.config.clone());
-                }
 
                 let id = window::Id::unique();
                 self.popup = Some(id);
@@ -176,9 +151,10 @@ impl Application for AppletModel {
                     None,
                     None,
                 );
+                let proxy = self.dbus_proxy.clone();
                 return Task::batch(vec![
                     get_popup(popup_settings),
-                    Task::perform(fetch_entries(), |r| {
+                    Task::perform(fetch_entries(proxy), |r| {
                         cosmic::Action::App(Message::EntriesLoaded(r))
                     }),
                 ]);
@@ -195,7 +171,8 @@ impl Application for AppletModel {
                 }
             }
             Message::ClearHistory => {
-                return Task::perform(call_daemon_action(DaemonAction::Clear), |r| {
+                let proxy = self.dbus_proxy.clone();
+                return Task::perform(call_daemon_action(DaemonAction::Clear, proxy), |r| {
                     cosmic::Action::App(Message::ActionDone(r))
                 });
             }
@@ -224,30 +201,36 @@ impl Application for AppletModel {
                 }
             },
             Message::CopyEntry(id) => {
+                let proxy = self.dbus_proxy.clone();
                 if let Some(p) = self.popup.take() {
                     return Task::batch(vec![
                         destroy_popup(p),
-                        Task::perform(call_daemon_action(DaemonAction::Paste(id)), |r| {
+                        Task::perform(call_daemon_action(DaemonAction::Paste(id), proxy), |r| {
                             cosmic::Action::App(Message::ActionDone(r))
                         }),
                     ]);
                 }
-                return Task::perform(call_daemon_action(DaemonAction::Paste(id)), |r| {
+                return Task::perform(call_daemon_action(DaemonAction::Paste(id), proxy), |r| {
                     cosmic::Action::App(Message::ActionDone(r))
                 });
             }
             Message::DeleteEntry(id) => {
-                return Task::perform(call_daemon_action(DaemonAction::Delete(id)), |r| {
+                let proxy = self.dbus_proxy.clone();
+                return Task::perform(call_daemon_action(DaemonAction::Delete(id), proxy), |r| {
                     cosmic::Action::App(Message::ActionDone(r))
                 });
             }
             Message::TogglePin(id, pin) => {
+                let proxy = self.dbus_proxy.clone();
                 return Task::perform(
-                    call_daemon_action(if pin {
-                        DaemonAction::Pin(id)
-                    } else {
-                        DaemonAction::Unpin(id)
-                    }),
+                    call_daemon_action(
+                        if pin {
+                            DaemonAction::Pin(id)
+                        } else {
+                            DaemonAction::Unpin(id)
+                        },
+                        proxy,
+                    ),
                     |r| cosmic::Action::App(Message::ActionDone(r)),
                 );
             }
@@ -261,7 +244,8 @@ impl Application for AppletModel {
                     }
                     _ => {}
                 }
-                return Task::perform(fetch_entries(), |r| {
+                let proxy = self.dbus_proxy.clone();
+                return Task::perform(fetch_entries(proxy), |r| {
                     cosmic::Action::App(Message::EntriesLoaded(r))
                 });
             }
@@ -274,19 +258,6 @@ impl Application for AppletModel {
                     Some(0)
                 };
             }
-            Message::SearchChar(c) => {
-                self.search_query.push(c);
-                self.selected_index = if self.filtered_entries().is_empty() {
-                    None
-                } else {
-                    Some(0)
-                };
-            }
-            Message::SearchBackspace => {
-                self.search_query.pop();
-                self.clamp_selection();
-            }
-            // Page toggle
             Message::SetPage(page) => {
                 self.page = page;
                 self.selected_index = if self.filtered_entries().is_empty() {
@@ -294,25 +265,6 @@ impl Application for AppletModel {
                 } else {
                     Some(0)
                 };
-            }
-            // Selection
-            Message::SelectNext => {
-                let count = self.filtered_entries().len();
-                if count > 0 {
-                    self.selected_index = Some(match self.selected_index {
-                        Some(idx) if idx + 1 < count => idx + 1,
-                        _ => 0,
-                    });
-                }
-            }
-            Message::SelectPrevious => {
-                let count = self.filtered_entries().len();
-                if count > 0 {
-                    self.selected_index = Some(match self.selected_index {
-                        Some(idx) if idx > 0 => idx - 1,
-                        _ => count - 1,
-                    });
-                }
             }
             Message::SelectIndex(idx) => {
                 let count = self.filtered_entries().len();
@@ -324,37 +276,13 @@ impl Application for AppletModel {
                 if let Some(id) = self.selected_entry_id()
                     && let Some(p) = self.popup.take()
                 {
+                    let proxy = self.dbus_proxy.clone();
                     return Task::batch(vec![
                         destroy_popup(p),
-                        Task::perform(call_daemon_action(DaemonAction::Paste(id)), |r| {
+                        Task::perform(call_daemon_action(DaemonAction::Paste(id), proxy), |r| {
                             cosmic::Action::App(Message::ActionDone(r))
                         }),
                     ]);
-                }
-            }
-            // Keybinding actions on selected
-            Message::TogglePinSelected => {
-                if let Some(id) = self.selected_entry_id() {
-                    let filtered = self.filtered_entries();
-                    let pinned = self
-                        .selected_index
-                        .and_then(|idx| filtered.get(idx))
-                        .is_some_and(|e| e.pinned);
-                    return Task::perform(
-                        call_daemon_action(if pinned {
-                            DaemonAction::Unpin(id)
-                        } else {
-                            DaemonAction::Pin(id)
-                        }),
-                        |r| cosmic::Action::App(Message::ActionDone(r)),
-                    );
-                }
-            }
-            Message::DeleteSelected => {
-                if let Some(id) = self.selected_entry_id() {
-                    return Task::perform(call_daemon_action(DaemonAction::Delete(id)), |r| {
-                        cosmic::Action::App(Message::ActionDone(r))
-                    });
                 }
             }
             Message::DismissTips => {
@@ -364,6 +292,14 @@ impl Application for AppletModel {
             Message::DismissDaemonNotice => {
                 self.show_daemon_notice = false;
             }
+            Message::ProxyReady(result) => match result {
+                Ok(proxy) => {
+                    self.dbus_proxy = Some(proxy);
+                }
+                Err(e) => {
+                    debug!(error = %e, "Failed to pre-connect D-Bus proxy");
+                }
+            },
         }
         cosmic::app::Task::none()
     }
@@ -373,7 +309,7 @@ impl Application for AppletModel {
         self.core
             .applet
             .icon_button_from_handle(
-                widget::icon::from_name(crate::schema::APP_ID)
+                widget::icon::from_name(format!("{}-symbolic", crate::schema::APP_ID))
                     .fallback(Some(widget::icon::IconFallback::Names(vec![
                         "folder-documents-symbolic".into(),
                     ])))
@@ -391,18 +327,15 @@ impl Application for AppletModel {
             let tips = widget::column::with_capacity(7)
                 .push(widget::text::title4(fl!("tips-title")))
                 .push(widget::text::body(fl!("tips-shortcut")))
-                .push(widget::text::body(fl!(
-                    "tips-pin",
-                    keybinding = self.config.toggle_pin.to_string()
-                )))
+                .push(widget::text::body(fl!("tips-pin", keybinding = "Ctrl+P")))
                 .push(widget::text::body(fl!(
                     "tips-delete",
-                    keybinding = self.config.delete_entry.to_string()
+                    keybinding = "Delete"
                 )))
                 .push(widget::text::body(fl!(
                     "tips-tabs",
-                    keybinding_all = self.config.tab_all.to_string(),
-                    keybinding_pinned = self.config.tab_pinned.to_string()
+                    keybinding_all = "Shift+Left",
+                    keybinding_pinned = "Shift+Right"
                 )))
                 .push(
                     widget::row::with_capacity(2)
@@ -568,7 +501,6 @@ impl Application for AppletModel {
             }
 
             widget::scrollable(list)
-                .id(self.scrollable_id.clone())
                 .height(Length::Fixed(LIST_HEIGHT))
                 .into()
         };
@@ -620,88 +552,12 @@ impl Application for AppletModel {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        listen_raw(|event, status, _window| {
-            if let Event::Keyboard(keyboard::Event::KeyPressed {
-                ref key, modifiers, ..
-            }) = event
-            {
-                let config = APPLET_KEYBINDINGS
-                    .read()
-                    .ok()
-                    .and_then(|kb| kb.clone())
-                    .unwrap_or_default();
-
-                // Configurable keybindings
-                if status == event::Status::Ignored {
-                    if config.toggle_pin.matches(key, modifiers) {
-                        return Some(Message::TogglePinSelected);
-                    }
-                    if config.delete_entry.matches(key, modifiers) {
-                        return Some(Message::DeleteSelected);
-                    }
-                }
-                if config.tab_all.matches(key, modifiers) {
-                    return Some(Message::SetPage(Page::All));
-                }
-                if config.tab_pinned.matches(key, modifiers) {
-                    return Some(Message::SetPage(Page::Pinned));
-                }
-            }
-
-            // Hardcoded navigation
-            match event {
-                Event::Keyboard(keyboard::Event::KeyPressed {
-                    key: keyboard::Key::Named(Named::Escape),
-                    ..
-                }) if status == event::Status::Ignored => Some(Message::TogglePopup),
-
-                Event::Keyboard(keyboard::Event::KeyPressed {
-                    key: keyboard::Key::Named(Named::ArrowDown),
-                    modifiers,
-                    ..
-                }) if status == event::Status::Ignored
-                    && !modifiers.control()
-                    && !modifiers.alt()
-                    && !modifiers.shift() =>
-                {
-                    Some(Message::SelectNext)
-                }
-
-                Event::Keyboard(keyboard::Event::KeyPressed {
-                    key: keyboard::Key::Named(Named::ArrowUp),
-                    modifiers,
-                    ..
-                }) if status == event::Status::Ignored
-                    && !modifiers.control()
-                    && !modifiers.alt()
-                    && !modifiers.shift() =>
-                {
-                    Some(Message::SelectPrevious)
-                }
-
-                Event::Keyboard(keyboard::Event::KeyPressed {
-                    key: keyboard::Key::Named(Named::Enter),
-                    ..
-                }) if status == event::Status::Ignored => Some(Message::ActivateSelected),
-
-                Event::Keyboard(keyboard::Event::KeyPressed {
-                    key: keyboard::Key::Named(Named::Backspace),
-                    ..
-                }) if status == event::Status::Ignored => Some(Message::SearchBackspace),
-
-                Event::Keyboard(keyboard::Event::KeyPressed {
-                    key: keyboard::Key::Character(ref c),
-                    modifiers,
-                    ..
-                }) if status == event::Status::Ignored
-                    && !modifiers.control()
-                    && !modifiers.alt() =>
-                {
-                    c.chars().next().map(Message::SearchChar)
-                }
-
-                _ => None,
-            }
+        listen_raw(|event, status, _window| match event {
+            Event::Keyboard(keyboard::Event::KeyPressed {
+                key: keyboard::Key::Named(Named::Enter),
+                ..
+            }) if status == event::Status::Ignored => Some(Message::ActivateSelected),
+            _ => None,
         })
     }
 
@@ -714,20 +570,33 @@ impl Application for AppletModel {
     }
 }
 
-async fn fetch_entries() -> Result<Vec<ClipboardEntry>, String> {
+async fn init_proxy() -> Result<crate::schema::dbus::ClipboardManagerProxy<'static>, String> {
     let conn = zbus::Connection::session()
         .await
         .map_err(|e| e.to_string())?;
-
-    let proxy = crate::schema::dbus::ClipboardManagerProxy::builder(&conn)
+    crate::schema::dbus::ClipboardManagerProxy::builder(&conn)
         .destination(DBUS_NAME)
         .map_err(|e| e.to_string())?
         .path(DBUS_PATH)
         .map_err(|e| e.to_string())?
         .build()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())
+}
 
+async fn get_or_create_proxy(
+    cached: Option<crate::schema::dbus::ClipboardManagerProxy<'static>>,
+) -> Result<crate::schema::dbus::ClipboardManagerProxy<'static>, String> {
+    match cached {
+        Some(proxy) => Ok(proxy),
+        None => init_proxy().await,
+    }
+}
+
+async fn fetch_entries(
+    cached_proxy: Option<crate::schema::dbus::ClipboardManagerProxy<'static>>,
+) -> Result<Vec<ClipboardEntry>, String> {
+    let proxy = get_or_create_proxy(cached_proxy).await?;
     let bytes = proxy.list_entries().await.map_err(|e| e.to_string())?;
     let entries: Vec<ClipboardEntry> =
         OxiCodeCodec::deserialize(&bytes).map_err(|e| e.to_string())?;
@@ -742,19 +611,11 @@ enum DaemonAction {
     Clear,
 }
 
-async fn call_daemon_action(action: DaemonAction) -> Result<bool, String> {
-    let conn = zbus::Connection::session()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let proxy = crate::schema::dbus::ClipboardManagerProxy::builder(&conn)
-        .destination(DBUS_NAME)
-        .map_err(|e| e.to_string())?
-        .path(DBUS_PATH)
-        .map_err(|e| e.to_string())?
-        .build()
-        .await
-        .map_err(|e| e.to_string())?;
+async fn call_daemon_action(
+    action: DaemonAction,
+    cached_proxy: Option<crate::schema::dbus::ClipboardManagerProxy<'static>>,
+) -> Result<bool, String> {
+    let proxy = get_or_create_proxy(cached_proxy).await?;
 
     match action {
         DaemonAction::Paste(id) => {
