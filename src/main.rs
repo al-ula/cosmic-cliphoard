@@ -13,6 +13,7 @@ mod schema;
 mod tray;
 
 use clap::Parser;
+use tracing::error;
 
 fn main() -> cosmic::iced::Result {
     let cli = cli::Cli::parse();
@@ -45,10 +46,10 @@ fn main() -> cosmic::iced::Result {
                 .expect("failed to create tokio runtime")
                 .block_on(commands::run_daemon())
             {
-                eprintln!("daemon error: {e}");
+                error!("daemon error: {e}");
                 let mut source = std::error::Error::source(&*e);
                 while let Some(s) = source {
-                    eprintln!("  caused by: {s}");
+                    error!("  caused by: {s}");
                     source = std::error::Error::source(s);
                 }
                 std::process::exit(1);

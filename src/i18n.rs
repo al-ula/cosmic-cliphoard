@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MPL-2.0
 
-//! Provides localization support for this crate.
-
 use i18n_embed::{
     DefaultLocalizer, LanguageLoader, Localizer,
     fluent::{FluentLanguageLoader, fluent_language_loader},
@@ -9,11 +7,12 @@ use i18n_embed::{
 };
 use rust_embed::RustEmbed;
 use std::sync::LazyLock;
+use tracing::error;
 
 /// Applies the requested language(s) to requested translations from the `fl!()` macro.
 pub fn init(requested_languages: &[LanguageIdentifier]) {
     if let Err(why) = localizer().select(requested_languages) {
-        eprintln!("error while loading fluent localizations: {why}");
+        error!("error while loading fluent localizations: {why}");
     }
 }
 
