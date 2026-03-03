@@ -382,7 +382,13 @@ mod tests {
     #[test]
     fn detect_slack_token() {
         let config = DetectionConfig::default();
-        let token = format!("{}-{}-{}-{}", "xoxb", "000000000000", "0000000000000", "x".repeat(24));
+        let token = format!(
+            "{}-{}-{}-{}",
+            "xoxb",
+            "000000000000",
+            "0000000000000",
+            "x".repeat(24)
+        );
         let result = detect_sensitive(token.as_bytes(), "text/plain", &config);
         assert_eq!(result.state, SensitiveState::Token);
     }
