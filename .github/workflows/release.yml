@@ -1,9 +1,10 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_run:
+    workflows: ["Test"]
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       tag:
@@ -15,6 +16,7 @@ env:
 
 jobs:
   build:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     name: Build tarball
     runs-on: ubuntu-latest
     steps:
@@ -71,6 +73,7 @@ jobs:
           path: ${{ steps.package.outputs.archive }}
 
   deb:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     name: Build Debian package
     runs-on: ubuntu-latest
     steps:
@@ -93,13 +96,17 @@ jobs:
       - name: Build .deb package
         run: dpkg-buildpackage -us -uc -b -d
 
+      - name: Copy .deb to working directory
+        run: cp ../*.deb .
+
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
         with:
           name: deb
-          path: ../*.deb
+          path: ./*.deb
 
   rpm:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     name: Build RPM package
     runs-on: ubuntu-latest
     container:
@@ -119,19 +126,19 @@ jobs:
       - name: Build RPM
         run: |
           VERSION=$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
-          mkdir -p ~/rpmbuild/{RPMS,SPECS,SRPMS}
-          cp cliphoard.spec ~/rpmbuild/SPECS/
+          mkdir -p $HOME/rpmbuild/{RPMS,SPECS,SRPMS}
+          cp cliphoard.spec $HOME/rpmbuild/SPECS/
           rpmbuild -bb \
             --define "_topdir $HOME/rpmbuild" \
             --define "_sourcedir $(pwd)" \
             --define "cargo_version ${VERSION}" \
-            ~/rpmbuild/SPECS/cliphoard.spec
+            $HOME/rpmbuild/SPECS/cliphoard.spec
 
       - name: Upload .rpm artifact
         uses: actions/upload-artifact@v4
         with:
           name: rpm
-          path: ~/rpmbuild/RPMS/**/*.rpm
+          path: ${{ github.workspace }}/rpmbuild/RPMS/**/*.rpm
 
   release:
     name: Create GitHub Release
@@ -154,6 +161,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "tag=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
           else
             echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
