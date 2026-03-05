@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 pub trait Codec {
     type Error: std::error::Error + Send + Sync + 'static;

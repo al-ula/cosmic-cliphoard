@@ -2,8 +2,8 @@
 
 //! Clipboard entry types.
 
-use super::sensitive::{SensitiveInfo, SensitiveState};
 use super::MimeType;
+use super::sensitive::{SensitiveInfo, SensitiveState};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
@@ -200,11 +200,7 @@ fn extract_uri_filenames(text: &str) -> Vec<&str> {
         .filter_map(|uri| {
             let path = uri.trim().rsplit_once('/')?;
             let name = path.1;
-            if name.is_empty() {
-                None
-            } else {
-                Some(name)
-            }
+            if name.is_empty() { None } else { Some(name) }
         })
         .collect()
 }

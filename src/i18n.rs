@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use i18n_embed::{
-    fluent::{fluent_language_loader, FluentLanguageLoader},
-    unic_langid::LanguageIdentifier,
     DefaultLocalizer, LanguageLoader, Localizer,
+    fluent::{FluentLanguageLoader, fluent_language_loader},
+    unic_langid::LanguageIdentifier,
 };
 use rust_embed::RustEmbed;
 use std::sync::LazyLock;

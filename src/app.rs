@@ -705,7 +705,11 @@ impl OverlayState {
 
                 let preview_len = self.settings_ui.preview_len.parse().unwrap_or(32);
                 let list_panel_width = self.settings_ui.list_panel_width.parse().unwrap_or(420.0);
-                let preview_panel_width = self.settings_ui.preview_panel_width.parse().unwrap_or(350.0);
+                let preview_panel_width = self
+                    .settings_ui
+                    .preview_panel_width
+                    .parse()
+                    .unwrap_or(350.0);
 
                 let ui_config = UIConfig {
                     preview_len,
@@ -1552,7 +1556,7 @@ impl OverlayState {
                 .width(Length::Fill)
                 .class(cosmic::theme::Container::Primary),
         )
-        .padding(0);
+        .padding([space_xs, 0, 0, 0]);
 
         let main_col = widget::column::with_capacity(3)
             .push(main_row)
@@ -1562,7 +1566,9 @@ impl OverlayState {
         let panel = widget::container(main_col)
             .padding(space_s)
             .width(Length::Fixed(if self.show_preview {
-                self.ui_config.list_panel_width + self.ui_config.preview_panel_width + f32::from(space_s) * 2.0
+                self.ui_config.list_panel_width
+                    + self.ui_config.preview_panel_width
+                    + f32::from(space_s) * 2.0
             } else {
                 self.ui_config.list_panel_width + f32::from(space_s) * 2.0
             }))

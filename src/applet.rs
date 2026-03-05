@@ -6,13 +6,13 @@ use crate::schema::history::fuzzy_search;
 use crate::schema::sensitive::{SensitiveInfo, SensitiveState};
 use crate::schema::{Codec, DBUS_NAME, DBUS_PATH, OxiCodeCodec};
 use cosmic::Element;
-use std::collections::HashSet;
 use cosmic::app::{Application, Core, Task};
 use cosmic::iced::event::{Event, listen_raw};
 use cosmic::iced::platform_specific::shell::commands::popup::{destroy_popup, get_popup};
 use cosmic::iced::{Length, Subscription, event, window};
 use cosmic::iced_core::keyboard::{self, key::Named};
 use cosmic::widget;
+use std::collections::HashSet;
 use tracing::debug;
 
 const PREVIEW_LEN: usize = 24;
@@ -443,7 +443,11 @@ impl Application for AppletModel {
                 let is_selected = self.selected_index == Some(idx);
 
                 let preview = if is_sensitive && !is_revealed {
-                    format!("{} {}", sensitive_label(&entry.sensitive), fl!("sensitive-masked"))
+                    format!(
+                        "{} {}",
+                        sensitive_label(&entry.sensitive),
+                        fl!("sensitive-masked")
+                    )
                 } else {
                     entry.preview(PREVIEW_LEN)
                 };

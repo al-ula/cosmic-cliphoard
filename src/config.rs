@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 pub use crate::schema::{KeyBinding, KeybindingsConfig, UIConfig};
-use cosmic::iced_core::keyboard::{self, key::Named, Modifiers};
+use cosmic::iced_core::keyboard::{self, Modifiers, key::Named};
 use tracing::error;
 
 pub type Config = KeybindingsConfig;
