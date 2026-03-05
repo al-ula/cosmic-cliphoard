@@ -6,8 +6,8 @@ use super::entry::{ClipboardEntry, EntryId};
 use super::sensitive::SensitiveInfo;
 use super::{DEFAULT_MAX_ENTRY_SIZE, DEFAULT_MAX_PINNED, DEFAULT_MAX_UNPINNED};
 use serde::{Deserialize, Serialize};
-use skim::fuzzy_matcher::FuzzyMatcher;
 use skim::fuzzy_matcher::skim::SkimMatcherV2;
+use skim::fuzzy_matcher::FuzzyMatcher;
 use std::collections::VecDeque;
 
 pub fn fuzzy_search<'a>(
@@ -364,17 +364,13 @@ mod tests {
     fn oversized_entry_rejected() {
         let mut history = ClipboardHistory::new(10, 10, 16);
 
-        assert!(
-            history
-                .push(MimeType::TextPlain, vec![0; 16], normal())
-                .is_some()
-        );
+        assert!(history
+            .push(MimeType::TextPlain, vec![0; 16], normal())
+            .is_some());
 
-        assert!(
-            history
-                .push(MimeType::TextPlain, vec![0; 17], normal())
-                .is_none()
-        );
+        assert!(history
+            .push(MimeType::TextPlain, vec![0; 17], normal())
+            .is_none());
         assert_eq!(history.len(), 1);
     }
 

@@ -253,3 +253,50 @@ impl Default for KeybindingsConfig {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UIConfig {
+    #[serde(default = "default_preview_len")]
+    pub preview_len: usize,
+    #[serde(default = "default_list_panel_width")]
+    pub list_panel_width: f32,
+    #[serde(default = "default_preview_panel_width")]
+    pub preview_panel_width: f32,
+}
+
+fn default_preview_len() -> usize {
+    32
+}
+
+fn default_list_panel_width() -> f32 {
+    420.0
+}
+
+fn default_preview_panel_width() -> f32 {
+    350.0
+}
+
+impl Default for UIConfig {
+    fn default() -> Self {
+        Self {
+            preview_len: default_preview_len(),
+            list_panel_width: default_list_panel_width(),
+            preview_panel_width: default_preview_panel_width(),
+        }
+    }
+}
+
+impl UIConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.preview_len < 8 || self.preview_len > 200 {
+            return Err("Preview length must be between 8 and 200".to_string());
+        }
+        if self.list_panel_width < 200.0 || self.list_panel_width > 800.0 {
+            return Err("List panel width must be between 200 and 800".to_string());
+        }
+        if self.preview_panel_width < 200.0 || self.preview_panel_width > 600.0 {
+            return Err("Preview panel width must be between 200 and 600".to_string());
+        }
+        Ok(())
+    }
+}

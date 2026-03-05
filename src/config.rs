@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
-pub use crate::schema::{KeyBinding, KeybindingsConfig};
-use cosmic::iced_core::keyboard::{self, Modifiers, key::Named};
+pub use crate::schema::{KeyBinding, KeybindingsConfig, UIConfig};
+use cosmic::iced_core::keyboard::{self, key::Named, Modifiers};
 use tracing::error;
 
 pub type Config = KeybindingsConfig;
@@ -118,6 +118,50 @@ pub fn save_keybindings(config: &KeybindingsConfig) -> Result<(), String> {
     let temp_path = path.with_extension("json.tmp");
     std::fs::write(&temp_path, &bytes).map_err(|e| format!("Failed to write keybindings: {e}"))?;
     std::fs::rename(&temp_path, &path).map_err(|e| format!("Failed to save keybindings: {e}"))?;
+
+    Ok(())
+}
+
+pub fn load_ui_config() -> UIConfig {
+    let config_path = dirs::config_dir().map(|d| d.join("cliphoard").join("ui.json"));
+
+    let Some(path) = config_path else {
+        return UIConfig::default();
+    };
+
+    if !path.exists() {
+        return UIConfig::default();
+    }
+
+    match std::fs::read(&path) {
+        Ok(bytes) if !bytes.is_empty() => match serde_json::from_slice::<UIConfig>(&bytes) {
+            Ok(config) => config,
+            Err(e) => {
+                error!("Failed to parse UI config: {e}");
+                UIConfig::default()
+            }
+        },
+        _ => UIConfig::default(),
+    }
+}
+
+pub fn save_ui_config(config: &UIConfig) -> Result<(), String> {
+    config.validate()?;
+
+    let config_dir = dirs::config_dir()
+        .ok_or_else(|| "Failed to get config directory".to_string())?
+        .join("cliphoard");
+
+    std::fs::create_dir_all(&config_dir)
+        .map_err(|e| format!("Failed to create config directory: {e}"))?;
+
+    let path = config_dir.join("ui.json");
+    let bytes = serde_json::to_vec_pretty(config)
+        .map_err(|e| format!("Failed to serialize UI config: {e}"))?;
+
+    let temp_path = path.with_extension("json.tmp");
+    std::fs::write(&temp_path, &bytes).map_err(|e| format!("Failed to write UI config: {e}"))?;
+    std::fs::rename(&temp_path, &path).map_err(|e| format!("Failed to save UI config: {e}"))?;
 
     Ok(())
 }

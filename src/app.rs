@@ -2,7 +2,7 @@
 
 //! Layer-shell overlay for the clipboard manager.
 
-use crate::config::{Config, KeyBinding, KeyBindingExt, KeybindingsConfig};
+use crate::config::{Config, KeyBinding, KeyBindingExt, KeybindingsConfig, UIConfig};
 use crate::fl;
 use crate::schema::entry::ClipboardEntry;
 use crate::schema::history::fuzzy_search;
@@ -24,9 +24,6 @@ use cosmic::{Element, Theme};
 use std::collections::HashSet;
 use std::str::FromStr;
 
-const PREVIEW_LEN: usize = 32;
-const LIST_PANEL_WIDTH: f32 = 450.0;
-const PREVIEW_PANEL_WIDTH: f32 = 350.0;
 const CARD_HEIGHT: f32 = 500.0;
 const ITEM_HEIGHT: f32 = 40.0;
 
@@ -103,6 +100,8 @@ struct OverlayState {
     daemon_notice_dismissed: bool,
     revealed_entries: HashSet<u64>,
     settings_detection: DetectionConfig,
+    settings_ui: SettingsUI,
+    ui_config: UIConfig,
     scroll_y: f32,
     scroll_viewport_height: f32,
     scroll_item_stride: f32,
@@ -121,6 +120,24 @@ impl Default for SettingsLimits {
             max_unpinned: crate::schema::DEFAULT_MAX_UNPINNED.to_string(),
             max_pinned: crate::schema::DEFAULT_MAX_PINNED.to_string(),
             max_entry_size: (crate::schema::DEFAULT_MAX_ENTRY_SIZE / (1024 * 1024)).to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SettingsUI {
+    preview_len: String,
+    list_panel_width: String,
+    preview_panel_width: String,
+}
+
+impl Default for SettingsUI {
+    fn default() -> Self {
+        let ui_config = UIConfig::default();
+        Self {
+            preview_len: ui_config.preview_len.to_string(),
+            list_panel_width: ui_config.list_panel_width.to_string(),
+            preview_panel_width: ui_config.preview_panel_width.to_string(),
         }
     }
 }
@@ -232,6 +249,9 @@ enum Message {
     SettingsDetectionMimeChanged(bool),
     SettingsDetectionHeuristicsChanged(bool),
     SettingsDetectionTokensChanged(bool),
+    SettingsPreviewLenChanged(String),
+    SettingsListWidthChanged(String),
+    SettingsPreviewWidthChanged(String),
     Scrolled(Viewport),
 }
 
@@ -269,6 +289,8 @@ impl OverlayState {
             daemon_notice_dismissed: false,
             revealed_entries: HashSet::new(),
             settings_detection: DetectionConfig::default(),
+            settings_ui: SettingsUI::default(),
+            ui_config: crate::config::load_ui_config(),
             scroll_y: 0.0,
             scroll_viewport_height: ITEM_HEIGHT,
             scroll_item_stride: ITEM_HEIGHT,
@@ -681,6 +703,21 @@ impl OverlayState {
                     return Task::none();
                 }
 
+                let preview_len = self.settings_ui.preview_len.parse().unwrap_or(32);
+                let list_panel_width = self.settings_ui.list_panel_width.parse().unwrap_or(420.0);
+                let preview_panel_width = self.settings_ui.preview_panel_width.parse().unwrap_or(350.0);
+
+                let ui_config = UIConfig {
+                    preview_len,
+                    list_panel_width,
+                    preview_panel_width,
+                };
+
+                if let Err(e) = ui_config.validate() {
+                    self.error = Some(e);
+                    return Task::none();
+                }
+
                 let max_unpinned = self.settings_limits.max_unpinned.parse().unwrap_or(500);
                 let max_pinned = self.settings_limits.max_pinned.parse().unwrap_or(50);
                 let max_entry_size =
@@ -692,7 +729,13 @@ impl OverlayState {
                     return Task::none();
                 }
 
+                if let Err(e) = crate::config::save_ui_config(&ui_config) {
+                    self.error = Some(e);
+                    return Task::none();
+                }
+
                 self.config = keybindings_config.clone();
+                self.ui_config = ui_config;
                 if let Ok(mut kb) = KEYBINDINGS.write() {
                     *kb = Some(self.config.clone());
                 }
@@ -704,6 +747,7 @@ impl OverlayState {
             }
             Message::ResetSettings => {
                 self.settings_limits = SettingsLimits::default();
+                self.settings_ui = SettingsUI::default();
                 let default_config = KeybindingsConfig::default();
                 self.settings_keybindings = SettingsKeybindings::from(&default_config);
                 self.keybinding_errors = KeybindingErrors::default();
@@ -771,6 +815,15 @@ impl OverlayState {
             Message::SettingsDetectionTokensChanged(val) => {
                 self.settings_detection.tokens = val;
             }
+            Message::SettingsPreviewLenChanged(val) => {
+                self.settings_ui.preview_len = val;
+            }
+            Message::SettingsListWidthChanged(val) => {
+                self.settings_ui.list_panel_width = val;
+            }
+            Message::SettingsPreviewWidthChanged(val) => {
+                self.settings_ui.preview_panel_width = val;
+            }
             Message::Scrolled(viewport) => {
                 self.scroll_y = viewport.absolute_offset().y;
                 self.scroll_viewport_height = viewport.bounds().height;
@@ -826,7 +879,7 @@ impl OverlayState {
             .padding(space_s);
 
         widget::container(content)
-            .width(Length::Fixed(LIST_PANEL_WIDTH))
+            .width(Length::Fixed(self.ui_config.list_panel_width))
             .class(cosmic::theme::Container::Primary)
             .into()
     }
@@ -872,7 +925,7 @@ impl OverlayState {
             .padding(space_s);
 
         widget::container(content)
-            .width(Length::Fixed(LIST_PANEL_WIDTH))
+            .width(Length::Fixed(self.ui_config.list_panel_width))
             .class(cosmic::theme::Container::Primary)
             .into()
     }
@@ -1023,7 +1076,7 @@ impl OverlayState {
                         fl!("sensitive-masked")
                     )
                 } else {
-                    entry.preview(PREVIEW_LEN)
+                    entry.preview(self.ui_config.preview_len)
                 };
 
                 let entry_content: Element<'_, Message> = widget::text(preview_text)
@@ -1147,7 +1200,7 @@ impl OverlayState {
                     .spacing(space_s);
 
                 let list_panel = widget::container(list_col)
-                    .width(Length::Fixed(LIST_PANEL_WIDTH))
+                    .width(Length::Fixed(self.ui_config.list_panel_width))
                     .height(Length::Fill);
 
                 let preview_content: Element<'_, Message> = if let Some(idx) = self.selected_index {
@@ -1240,7 +1293,7 @@ impl OverlayState {
                 };
 
                 let preview_panel = widget::container(preview_content)
-                    .width(Length::Fixed(PREVIEW_PANEL_WIDTH))
+                    .width(Length::Fixed(self.ui_config.preview_panel_width))
                     .height(Length::Fill)
                     .padding(space_s);
 
@@ -1347,6 +1400,27 @@ impl OverlayState {
                             .on_toggle(Message::SettingsDetectionTokensChanged),
                     ));
 
+                let ui_section = widget::settings::section()
+                    .title(fl!("settings-ui"))
+                    .add(widget::settings::item(
+                        fl!("settings-preview-len"),
+                        widget::text_input("", &self.settings_ui.preview_len)
+                            .width(Length::Fixed(100.0))
+                            .on_input(Message::SettingsPreviewLenChanged),
+                    ))
+                    .add(widget::settings::item(
+                        fl!("settings-list-width"),
+                        widget::text_input("", &self.settings_ui.list_panel_width)
+                            .width(Length::Fixed(100.0))
+                            .on_input(Message::SettingsListWidthChanged),
+                    ))
+                    .add(widget::settings::item(
+                        fl!("settings-preview-width"),
+                        widget::text_input("", &self.settings_ui.preview_panel_width)
+                            .width(Length::Fixed(100.0))
+                            .on_input(Message::SettingsPreviewWidthChanged),
+                    ));
+
                 let has_errors = self.keybinding_errors.has_errors();
                 let save_button = if has_errors {
                     widget::button::text(fl!("settings-save"))
@@ -1374,6 +1448,7 @@ impl OverlayState {
                     limits_section.into(),
                     keybindings_section.into(),
                     detection_section.into(),
+                    ui_section.into(),
                     buttons.into(),
                 ]);
 
@@ -1487,9 +1562,9 @@ impl OverlayState {
         let panel = widget::container(main_col)
             .padding(space_s)
             .width(Length::Fixed(if self.show_preview {
-                LIST_PANEL_WIDTH + PREVIEW_PANEL_WIDTH + f32::from(space_s) * 2.0
+                self.ui_config.list_panel_width + self.ui_config.preview_panel_width + f32::from(space_s) * 2.0
             } else {
-                LIST_PANEL_WIDTH + f32::from(space_s) * 2.0
+                self.ui_config.list_panel_width + f32::from(space_s) * 2.0
             }))
             .height(Length::Fixed(CARD_HEIGHT))
             .class(cosmic::theme::Container::Custom(Box::new(

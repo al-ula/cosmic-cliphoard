@@ -14,7 +14,7 @@ pub mod mime;
 pub mod sensitive;
 
 pub use codec::{Codec, OxiCodeCodec, OxiCodeError};
-pub use config::{ClipboardConfig, KeyBinding, KeybindingsConfig};
+pub use config::{ClipboardConfig, KeyBinding, KeybindingsConfig, UIConfig};
 pub use dbus::ClipboardManagerProxy;
 pub use entry::{ClipboardEntry, EntryId};
 pub use history::{ClipboardHistory, PinResult};

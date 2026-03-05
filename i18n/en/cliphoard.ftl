@@ -64,3 +64,7 @@ settings-detection = Sensitive Content Detection
 settings-detection-mime = MIME type hints
 settings-detection-heuristics = Password heuristics
 settings-detection-tokens = Token pattern matching
+settings-ui = Appearance (requires restart)
+settings-preview-len = Preview Length (chars)
+settings-list-width = List Panel Width (px)
+settings-preview-width = Preview Panel Width (px)
