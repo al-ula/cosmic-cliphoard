@@ -745,6 +745,7 @@ impl OverlayState {
                 }
             }
             Message::ToggleSensitiveDone(_result) => {
+                self.revealed_entries.clear();
                 return Task::perform(fetch_entries(), Message::EntriesLoaded);
             }
             Message::SettingsDetectionMimeChanged(val) => {
@@ -990,9 +991,8 @@ impl OverlayState {
                 let pinned = entry.pinned;
                 let is_selected = self.selected_index == Some(idx);
                 let is_sensitive = entry.sensitive.state.is_sensitive();
-                let is_revealed = self.revealed_entries.contains(&id);
 
-                let preview_text = if is_sensitive && !is_revealed {
+                let preview_text = if is_sensitive {
                     format!(
                         "{} {}",
                         sensitive_label(&entry.sensitive),
@@ -1002,26 +1002,11 @@ impl OverlayState {
                     entry.preview(PREVIEW_LEN)
                 };
 
-                let entry_content: Element<'_, Message> = if is_sensitive {
-                    let icon = widget::icon::from_name("channel-secure-symbolic").size(16);
-                    widget::row::with_capacity(2)
-                        .push(icon)
-                        .push(
-                            widget::text(preview_text)
-                                .width(Length::Fill)
-                                .wrapping(cosmic::iced::widget::text::Wrapping::None)
-                                .shaping(cosmic::iced::widget::text::Shaping::Basic),
-                        )
-                        .spacing(4)
-                        .align_y(cosmic::iced::Alignment::Center)
-                        .into()
-                } else {
-                    widget::text(preview_text)
-                        .width(Length::Fill)
-                        .wrapping(cosmic::iced::widget::text::Wrapping::None)
-                        .shaping(cosmic::iced::widget::text::Shaping::Basic)
-                        .into()
-                };
+                let entry_content: Element<'_, Message> = widget::text(preview_text)
+                    .width(Length::Fill)
+                    .wrapping(cosmic::iced::widget::text::Wrapping::None)
+                    .shaping(cosmic::iced::widget::text::Shaping::Basic)
+                    .into();
 
                 let mut buttons = widget::row::with_capacity(5)
                     .push(
@@ -1044,19 +1029,6 @@ impl OverlayState {
                             cosmic::theme::Button::Text
                         }),
                     );
-
-                if is_sensitive {
-                    buttons = buttons.push(
-                        widget::button::icon(widget::icon::from_name(if is_revealed {
-                            "view-conceal-symbolic"
-                        } else {
-                            "view-reveal-symbolic"
-                        }))
-                        .extra_small()
-                        .on_press(Message::ToggleReveal(id))
-                        .class(cosmic::theme::Button::Text),
-                    );
-                }
 
                 buttons = buttons
                     .push(
