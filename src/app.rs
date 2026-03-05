@@ -14,7 +14,7 @@ use cosmic::iced::platform_specific::runtime::wayland::layer_surface::SctkLayerS
 use cosmic::iced::platform_specific::shell::commands::layer_surface::{
     Anchor, KeyboardInteractivity, Layer, destroy_layer_surface, get_layer_surface,
 };
-use cosmic::iced::widget::scrollable::{AbsoluteOffset, scroll_to};
+use cosmic::iced::widget::scrollable::{AbsoluteOffset, Viewport, scroll_to};
 use cosmic::iced::{Color, Length, Subscription, Task, window};
 use cosmic::iced_core::keyboard::{self, Modifiers, key::Named};
 use cosmic::iced_core::widget::Id;
@@ -28,6 +28,7 @@ const PREVIEW_LEN: usize = 32;
 const LIST_PANEL_WIDTH: f32 = 400.0;
 const PREVIEW_PANEL_WIDTH: f32 = 350.0;
 const CARD_HEIGHT: f32 = 500.0;
+const ITEM_HEIGHT: f32 = 40.0;
 
 /// Initial view to open when the overlay launches.
 static INITIAL_VIEW: std::sync::OnceLock<View> = std::sync::OnceLock::new();
@@ -102,6 +103,9 @@ struct OverlayState {
     daemon_notice_dismissed: bool,
     revealed_entries: HashSet<u64>,
     settings_detection: DetectionConfig,
+    scroll_y: f32,
+    scroll_viewport_height: f32,
+    scroll_item_stride: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -228,6 +232,7 @@ enum Message {
     SettingsDetectionMimeChanged(bool),
     SettingsDetectionHeuristicsChanged(bool),
     SettingsDetectionTokensChanged(bool),
+    Scrolled(Viewport),
 }
 
 impl std::fmt::Debug for OverlayState {
@@ -264,6 +269,9 @@ impl OverlayState {
             daemon_notice_dismissed: false,
             revealed_entries: HashSet::new(),
             settings_detection: DetectionConfig::default(),
+            scroll_y: 0.0,
+            scroll_viewport_height: ITEM_HEIGHT,
+            scroll_item_stride: ITEM_HEIGHT,
         };
         if let Ok(mut kb) = KEYBINDINGS.write() {
             *kb = Some(state.config.clone());
@@ -300,6 +308,7 @@ impl OverlayState {
         self.search_query.clear();
         self.page = Page::All;
         self.selected_index = None;
+        self.scroll_y = 0.0;
 
         Task::batch(vec![
             get_layer_surface(SctkLayerSurfaceSettings {
@@ -347,6 +356,32 @@ impl OverlayState {
         self.selected_index
             .and_then(|idx| filtered.get(idx))
             .map(|e| e.id.0)
+    }
+
+    fn scroll_to_index(&mut self, index: usize) -> Task<Message> {
+        let stride = self.scroll_item_stride;
+        let item_top = index as f32 * stride;
+        let item_bottom = item_top + stride;
+        let view_top = self.scroll_y;
+        let view_bottom = view_top + self.scroll_viewport_height;
+
+        let new_y = if item_top < view_top {
+            Some(item_top)
+        } else if item_bottom > view_bottom {
+            Some(item_bottom - self.scroll_viewport_height)
+        } else {
+            None
+        };
+
+        if let Some(y) = new_y {
+            self.scroll_y = y;
+            scroll_to(
+                self.scrollable_id.clone(),
+                AbsoluteOffset { x: 0.0, y },
+            )
+        } else {
+            Task::none()
+        }
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
@@ -418,12 +453,8 @@ impl OverlayState {
             Message::SelectIndex(idx) => {
                 self.selected_index = Some(idx);
                 let unfocus = widget::text_input::focus(widget::Id::unique());
-                const ITEM_HEIGHT: f32 = 40.0;
-                let offset = AbsoluteOffset {
-                    x: 0.0,
-                    y: idx as f32 * ITEM_HEIGHT,
-                };
-                return Task::batch(vec![unfocus, scroll_to(self.scrollable_id.clone(), offset)]);
+                let scroll = self.scroll_to_index(idx);
+                return Task::batch(vec![unfocus, scroll]);
             }
             Message::DeleteEntry(id) => {
                 let filtered_count = self.filtered_entries_count();
@@ -468,7 +499,6 @@ impl OverlayState {
                 return Task::perform(fetch_entries(), Message::EntriesLoaded);
             }
             Message::SelectNext => {
-                const ITEM_HEIGHT: f32 = 40.0;
                 let filtered_count = self.filtered_entries_count();
                 if filtered_count > 0 {
                     let new_index = match self.selected_index {
@@ -476,19 +506,12 @@ impl OverlayState {
                         Some(i) => (i + 1).min(filtered_count - 1),
                     };
                     self.selected_index = Some(new_index);
-                    let offset = AbsoluteOffset {
-                        x: 0.0,
-                        y: new_index as f32 * ITEM_HEIGHT,
-                    };
                     let unfocus = widget::text_input::focus(widget::Id::unique());
-                    return Task::batch(vec![
-                        unfocus,
-                        scroll_to(self.scrollable_id.clone(), offset),
-                    ]);
+                    let scroll = self.scroll_to_index(new_index);
+                    return Task::batch(vec![unfocus, scroll]);
                 }
             }
             Message::SelectPrevious => {
-                const ITEM_HEIGHT: f32 = 40.0;
                 match self.selected_index {
                     None => {}
                     Some(0) => {
@@ -498,11 +521,7 @@ impl OverlayState {
                     Some(i) => {
                         let new_index = i.saturating_sub(1);
                         self.selected_index = Some(new_index);
-                        let offset = AbsoluteOffset {
-                            x: 0.0,
-                            y: new_index as f32 * ITEM_HEIGHT,
-                        };
-                        return scroll_to(self.scrollable_id.clone(), offset);
+                        return self.scroll_to_index(new_index);
                     }
                 }
             }
@@ -756,6 +775,15 @@ impl OverlayState {
             }
             Message::SettingsDetectionTokensChanged(val) => {
                 self.settings_detection.tokens = val;
+            }
+            Message::Scrolled(viewport) => {
+                self.scroll_y = viewport.absolute_offset().y;
+                self.scroll_viewport_height = viewport.bounds().height;
+                let n = self.filtered_entries_count();
+                if n > 0 {
+                    self.scroll_item_stride =
+                        viewport.content_bounds().height / n as f32;
+                }
             }
         }
         Task::none()
@@ -1075,6 +1103,7 @@ impl OverlayState {
 
             widget::scrollable(list)
                 .id(self.scrollable_id.clone())
+                .on_scroll(Message::Scrolled)
                 .height(Length::Fill)
                 .into()
         };
