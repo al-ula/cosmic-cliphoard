@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!-- SPDX-License-Identifier: FSFAP -->
 <component type="desktop-application">
   <id>com.github.al_ula.Cliphoard</id>
   <name>Cliphoard</name>
-  <summary>Clipboard manager for COSMIC</summary>
+  <summary>Clipboard manager for COSMIC desktop</summary>
   <metadata_license>FSFAP</metadata_license>
   <project_license>MPL-2.0</project_license>
 

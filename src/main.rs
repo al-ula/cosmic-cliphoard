@@ -19,7 +19,7 @@ fn main() -> cosmic::iced::Result {
     let cli = cli::Cli::parse();
 
     match cli.command {
-        None | Some(cli::Command::Toggle) => {
+        None => {
             let requested_languages = i18n_embed::DesktopLanguageRequester::requested_languages();
             i18n::init(&requested_languages);
 

@@ -4,16 +4,17 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 #[derive(Parser, Debug)]
-#[command(name = "cliphoard", version, about)]
+#[command(
+    name = "cliphoard",
+    version,
+    about = "Clipboard manager for COSMIC desktop. Running without a command opens the overlay."
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Command>,
 }
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
-    /// Toggle the clipboard overlay
-    Toggle,
-
     /// Run as a COSMIC panel applet
     Applet,
 
