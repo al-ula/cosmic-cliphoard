@@ -3,8 +3,10 @@
 use crate::fl;
 use crate::schema::entry::ClipboardEntry;
 use crate::schema::history::fuzzy_search;
+use crate::schema::sensitive::{SensitiveInfo, SensitiveState};
 use crate::schema::{Codec, DBUS_NAME, DBUS_PATH, OxiCodeCodec};
 use cosmic::Element;
+use std::collections::HashSet;
 use cosmic::app::{Application, Core, Task};
 use cosmic::iced::event::{Event, listen_raw};
 use cosmic::iced::platform_specific::shell::commands::popup::{destroy_popup, get_popup};
@@ -33,6 +35,7 @@ pub enum Message {
     CopyEntry(u64),
     DeleteEntry(u64),
     TogglePin(u64, bool),
+    ToggleReveal(u64),
     ActionDone(Result<bool, String>),
     SearchChanged(String),
     SetPage(Page),
@@ -55,6 +58,7 @@ pub struct AppletModel {
     show_tips: bool,
     show_daemon_notice: bool,
     dbus_proxy: Option<crate::schema::dbus::ClipboardManagerProxy<'static>>,
+    revealed_entries: HashSet<u64>,
 }
 
 impl AppletModel {
@@ -114,6 +118,7 @@ impl Application for AppletModel {
                 show_tips: crate::config::is_first_launch(),
                 show_daemon_notice: false,
                 dbus_proxy: None,
+                revealed_entries: HashSet::new(),
             },
             Task::perform(init_proxy(), |r| {
                 cosmic::Action::App(Message::ProxyReady(r))
@@ -131,6 +136,7 @@ impl Application for AppletModel {
                 self.search_query.clear();
                 self.selected_index = None;
                 self.page = Page::All;
+                self.revealed_entries.clear();
 
                 let id = window::Id::unique();
                 self.popup = Some(id);
@@ -223,6 +229,9 @@ impl Application for AppletModel {
                     ),
                     |r| cosmic::Action::App(Message::ActionDone(r)),
                 );
+            }
+            Message::ToggleReveal(id) => {
+                self.revealed_entries.insert(id);
             }
             Message::ActionDone(result) => {
                 match &result {
@@ -428,16 +437,34 @@ impl Application for AppletModel {
 
             for (idx, entry) in filtered.iter().enumerate() {
                 let id = entry.id.0;
-                let preview = entry.preview(PREVIEW_LEN);
+                let is_sensitive = entry.sensitive.state.is_sensitive();
+                let is_revealed = self.revealed_entries.contains(&id);
                 let pinned = entry.pinned;
                 let is_selected = self.selected_index == Some(idx);
+
+                let preview = if is_sensitive && !is_revealed {
+                    format!("{} {}", sensitive_label(&entry.sensitive), fl!("sensitive-masked"))
+                } else {
+                    entry.preview(PREVIEW_LEN)
+                };
 
                 let entry_text = widget::text(preview)
                     .width(Length::Fill)
                     .wrapping(cosmic::iced::widget::text::Wrapping::None)
                     .shaping(cosmic::iced::widget::text::Shaping::Basic);
 
-                let buttons = widget::row::with_capacity(3)
+                let mut buttons = widget::row::with_capacity(4);
+
+                if is_sensitive && !is_revealed {
+                    buttons = buttons.push(
+                        widget::button::icon(widget::icon::from_name("image-red-eye-symbolic"))
+                            .extra_small()
+                            .on_press(Message::ToggleReveal(id))
+                            .class(cosmic::theme::Button::Suggested),
+                    );
+                }
+
+                buttons = buttons
                     .push(
                         widget::button::icon(widget::icon::from_name("edit-copy-symbolic"))
                             .extra_small()
@@ -625,4 +652,21 @@ async fn call_daemon_action(
         }
     }
     Ok(true)
+}
+
+fn sensitive_label(info: &SensitiveInfo) -> String {
+    match info.state {
+        SensitiveState::PasswordMime | SensitiveState::PasswordHeuristic => {
+            fl!("sensitive-password")
+        }
+        SensitiveState::Token => {
+            if let Some(ref pat) = info.method.token_pattern {
+                fl!("sensitive-token", pattern = pat.as_str())
+            } else {
+                fl!("sensitive-token", pattern = "unknown")
+            }
+        }
+        SensitiveState::Secret => fl!("sensitive-secret"),
+        SensitiveState::Normal => String::new(),
+    }
 }
