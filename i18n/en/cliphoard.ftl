@@ -3,6 +3,7 @@ clipboard-empty = Clipboard history is empty
 clipboard-error = Could not connect to clipboard service
 search-placeholder = Search clipboard history...
 clear-history = Clear History
+toggle-preview = Toggle Preview
 open-overlay = Open Overlay
 pin = Pin
 unpin = Unpin

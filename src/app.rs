@@ -980,6 +980,7 @@ impl OverlayState {
             page_toggle = page_toggle.push(
                 widget::button::icon(widget::icon::from_name("edit-clear-symbolic"))
                     .on_press(Message::ClearHistory)
+                    .tooltip(fl!("clear-history"))
                     .class(cosmic::theme::Button::Destructive),
             );
         }
@@ -987,6 +988,7 @@ impl OverlayState {
         page_toggle = page_toggle.push(
             widget::button::icon(widget::icon::from_name("view-dual-symbolic"))
                 .on_press(Message::TogglePreview)
+                .tooltip(fl!("toggle-preview"))
                 .class(if self.show_preview {
                     cosmic::theme::Button::Suggested
                 } else {
