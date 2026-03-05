@@ -25,7 +25,7 @@ use std::collections::HashSet;
 use std::str::FromStr;
 
 const PREVIEW_LEN: usize = 32;
-const LIST_PANEL_WIDTH: f32 = 400.0;
+const LIST_PANEL_WIDTH: f32 = 450.0;
 const PREVIEW_PANEL_WIDTH: f32 = 350.0;
 const CARD_HEIGHT: f32 = 500.0;
 const ITEM_HEIGHT: f32 = 40.0;
@@ -375,10 +375,7 @@ impl OverlayState {
 
         if let Some(y) = new_y {
             self.scroll_y = y;
-            scroll_to(
-                self.scrollable_id.clone(),
-                AbsoluteOffset { x: 0.0, y },
-            )
+            scroll_to(self.scrollable_id.clone(), AbsoluteOffset { x: 0.0, y })
         } else {
             Task::none()
         }
@@ -511,20 +508,18 @@ impl OverlayState {
                     return Task::batch(vec![unfocus, scroll]);
                 }
             }
-            Message::SelectPrevious => {
-                match self.selected_index {
-                    None => {}
-                    Some(0) => {
-                        self.selected_index = None;
-                        return widget::text_input::focus(self.search_input_id.clone());
-                    }
-                    Some(i) => {
-                        let new_index = i.saturating_sub(1);
-                        self.selected_index = Some(new_index);
-                        return self.scroll_to_index(new_index);
-                    }
+            Message::SelectPrevious => match self.selected_index {
+                None => {}
+                Some(0) => {
+                    self.selected_index = None;
+                    return widget::text_input::focus(self.search_input_id.clone());
                 }
-            }
+                Some(i) => {
+                    let new_index = i.saturating_sub(1);
+                    self.selected_index = Some(new_index);
+                    return self.scroll_to_index(new_index);
+                }
+            },
             Message::ActivateSelected => {
                 let id = if let Some(id) = self.selected_entry_id() {
                     Some(id)
@@ -781,8 +776,7 @@ impl OverlayState {
                 self.scroll_viewport_height = viewport.bounds().height;
                 let n = self.filtered_entries_count();
                 if n > 0 {
-                    self.scroll_item_stride =
-                        viewport.content_bounds().height / n as f32;
+                    self.scroll_item_stride = viewport.content_bounds().height / n as f32;
                 }
             }
         }

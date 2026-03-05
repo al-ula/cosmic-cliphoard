@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use i18n_embed::{
-    DefaultLocalizer, LanguageLoader, Localizer,
-    fluent::{FluentLanguageLoader, fluent_language_loader},
+    fluent::{fluent_language_loader, FluentLanguageLoader},
     unic_langid::LanguageIdentifier,
+    DefaultLocalizer, LanguageLoader, Localizer,
 };
 use rust_embed::RustEmbed;
 use std::sync::LazyLock;
@@ -42,7 +42,7 @@ macro_rules! fl {
         i18n_embed_fl::fl!($crate::i18n::LANGUAGE_LOADER, $message_id)
     }};
 
-    ($message_id:literal, $($args:expr),*) => {{
-        i18n_embed_fl::fl!($crate::i18n::LANGUAGE_LOADER, $message_id, $($args), *)
+    ($message_id:literal, $($rest:tt)*) => {{
+        i18n_embed_fl::fl!($crate::i18n::LANGUAGE_LOADER, $message_id, $($rest)*)
     }};
 }
